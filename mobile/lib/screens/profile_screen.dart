@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../utils/dates.dart';
+import '../widgets/account_dialogs.dart';
 import '../widgets/responsive_center.dart';
 import '../widgets/server_dialog.dart';
 import 'login_screen.dart';
@@ -21,6 +22,23 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // Cópia local: muda quando o usuário edita o nome, sem precisar recarregar a tela
+  late User _user = widget.user;
+
+  Future<void> _editName() async {
+    final updated = await showEditNameDialog(context, _user.name);
+    if (updated == null || !mounted) return;
+    setState(() => _user = updated);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nome atualizado')));
+  }
+
+  Future<void> _changePassword() async {
+    final changed = await showChangePasswordDialog(context);
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Senha alterada com sucesso')));
+    }
+  }
+
   Future<void> _confirmLogout() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -45,7 +63,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final user = widget.user;
+    final user = _user;
     final done = widget.tasks.where((t) => t.done).length;
 
     return Scaffold(
@@ -78,6 +96,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
               const SizedBox(height: 24),
+
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.badge_outlined),
+                      title: const Text('Editar nome'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _editName,
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.password),
+                      title: const Text('Alterar senha'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _changePassword,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
 
               Card(
                 child: Column(
@@ -138,7 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: () => showAboutDialog(
                         context: context,
                         applicationName: 'Minhas Tarefas',
-                        applicationVersion: '1.0.0',
+                        applicationVersion: '1.1.0',
                         applicationIcon: const Icon(Icons.task_alt_rounded, size: 40),
                         children: const [Text('Gerenciador de tarefas feito em Flutter, consumindo uma API FastAPI.')],
                       ),

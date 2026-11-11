@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskOut, TaskUpdate
+from app.schemas.task import DeletedCount, TaskCreate, TaskOut, TaskUpdate
 from app.services.task_service import TaskService
 
 router = APIRouter(
@@ -24,6 +24,12 @@ def get_service(db: Session = Depends(get_db), user: User = Depends(get_current_
 def list_tasks(service: TaskService = Depends(get_service)):
     """Lista todas as tarefas do usuário logado (mais recentes primeiro)."""
     return service.list()
+
+
+# Precisa vir antes de "/{task_id}", senão o FastAPI tentaria ler "concluidas" como um id
+@router.delete("/concluidas", response_model=DeletedCount, summary="Excluir todas as tarefas concluídas")
+def delete_completed(service: TaskService = Depends(get_service)):
+    return DeletedCount(deleted=service.delete_completed())
 
 
 @router.get("/{task_id}", response_model=TaskOut, summary="Buscar tarefa por ID",

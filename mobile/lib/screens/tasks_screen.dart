@@ -3,14 +3,16 @@ import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../utils/dates.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/progress_card.dart';
 import '../widgets/task_card.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'stats_screen.dart';
 import 'task_form_screen.dart';
 
-/// Filtros mostrados como "chips" acima da lista.
+/// Filtros de status mostrados como "chips" acima da lista.
 enum TaskFilter {
   todas('Todas'),
   pendentes('Pendentes'),
@@ -53,6 +55,7 @@ class _TasksScreenState extends State<TasksScreen> {
   String? _error;
 
   TaskFilter _filter = TaskFilter.todas;
+  Category? _category; // null = todas as categorias
   TaskSort _sort = TaskSort.recentes;
   final _searchController = TextEditingController();
   String get _search => _searchController.text;
@@ -98,11 +101,12 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
-  void _showMessage(String message) {
+  /// Mostra uma mensagem rápida no rodapé. [action] adiciona um botão (ex.: "Desfazer").
+  void _showMessage(String message, {SnackBarAction? action}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(SnackBar(content: Text(message), action: action));
   }
 
   void _sessionExpired(String message) => logoutAndGoToLogin(context, message: message);
@@ -118,24 +122,49 @@ class _TasksScreenState extends State<TasksScreen> {
     _showMessage(updated.done ? 'Tarefa concluída!' : 'Tarefa reaberta');
   });
 
-  Future<void> _delete(Task task) async {
+  /// Exclui sem pedir confirmação, mas oferece "Desfazer".
+  /// Desfazer = criar a tarefa de novo com os mesmos dados (ela ganha um novo id).
+  Future<void> _delete(Task task) => _run(() async {
+    await api.deleteTask(task.id);
+    setState(() => _tasks.removeWhere((t) => t.id == task.id));
+    _showMessage(
+      'Tarefa excluída',
+      action: SnackBarAction(
+        label: 'Desfazer',
+        onPressed: () => _run(() async {
+          final restored = await api.createTask(task.toJson());
+          setState(() => _tasks.add(restored));
+        }),
+      ),
+    );
+  });
+
+  /// Cria uma cópia da tarefa (sempre como pendente).
+  Future<void> _duplicate(Task task) => _run(() async {
+    final copy = await api.createTask({...task.toJson(), 'title': '${task.title} (cópia)', 'done': false});
+    setState(() => _tasks.add(copy));
+    _showMessage('Tarefa duplicada');
+  });
+
+  /// Apaga todas as concluídas (DELETE /tasks/concluidas). Aqui não há "desfazer", então pede confirmação.
+  Future<void> _clearCompleted() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.delete_outline),
-        title: const Text('Excluir tarefa'),
-        content: Text('Deseja excluir "${task.title}"? Essa ação não pode ser desfeita.'),
+        icon: const Icon(Icons.cleaning_services_outlined),
+        title: const Text('Limpar concluídas'),
+        content: const Text('Todas as tarefas concluídas serão excluídas. Essa ação não pode ser desfeita.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Excluir')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Limpar')),
         ],
       ),
     );
     if (ok != true) return;
     await _run(() async {
-      await api.deleteTask(task.id);
-      setState(() => _tasks.removeWhere((t) => t.id == task.id));
-      _showMessage('Tarefa excluída');
+      final count = await api.deleteCompleted();
+      setState(() => _tasks.removeWhere((t) => t.done));
+      _showMessage('$count tarefa(s) excluída(s)');
     });
   }
 
@@ -145,21 +174,27 @@ class _TasksScreenState extends State<TasksScreen> {
     if (saved == true) _load();
   }
 
-  void _openProfile() {
+  Future<void> _openProfile() async {
     if (_user == null) return;
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProfileScreen(user: _user!, tasks: _tasks),
       ),
     );
+    if (mounted) _load(); // o nome pode ter sido alterado no perfil
   }
 
-  /// Aplica filtro, busca e ordenação sobre a lista que veio da API.
+  void _openStats() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => StatsScreen(tasks: _tasks)));
+  }
+
+  /// Aplica filtros, busca e ordenação sobre a lista que veio da API.
   List<Task> get _visibleTasks {
     final query = _search.toLowerCase();
     final list = _tasks.where((t) {
       final inText = t.title.toLowerCase().contains(query) || (t.description ?? '').toLowerCase().contains(query);
-      return _filter.matches(t) && inText;
+      final inCategory = _category == null || t.category == _category;
+      return _filter.matches(t) && inCategory && inText;
     }).toList();
 
     list.sort((a, b) {
@@ -186,8 +221,9 @@ class _TasksScreenState extends State<TasksScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_user == null ? 'Minhas tarefas' : 'Olá, ${_user!.firstName}'),
+        title: Text(_user == null ? 'Minhas tarefas' : '${greeting()}, ${_user!.firstName}'),
         actions: [
+          IconButton(icon: const Icon(Icons.insights), tooltip: 'Estatísticas', onPressed: _openStats),
           PopupMenuButton<TaskSort>(
             icon: const Icon(Icons.sort),
             tooltip: 'Ordenar',
@@ -239,6 +275,7 @@ class _TasksScreenState extends State<TasksScreen> {
     }
 
     final visible = _visibleTasks;
+    final hasCompleted = _tasks.any((t) => t.done);
 
     // LayoutBuilder informa a largura disponível -> usado para deixar a tela responsiva
     return LayoutBuilder(
@@ -272,22 +309,40 @@ class _TasksScreenState extends State<TasksScreen> {
                 onChanged: (_) => setState(() {}), // redesenha a lista filtrada
               ),
               const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final f in TaskFilter.values)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text('${f.label} (${_tasks.where(f.matches).length})'),
-                          selected: _filter == f,
-                          onSelected: (_) => setState(() => _filter = f),
-                        ),
-                      ),
-                  ],
-                ),
+              // Filtro por status
+              _ChipsRow(
+                children: [
+                  for (final f in TaskFilter.values)
+                    ChoiceChip(
+                      label: Text('${f.label} (${_tasks.where(f.matches).length})'),
+                      selected: _filter == f,
+                      onSelected: (_) => setState(() => _filter = f),
+                    ),
+                ],
               ),
+              const SizedBox(height: 8),
+              // Filtro por categoria (tocar de novo na mesma categoria remove o filtro)
+              _ChipsRow(
+                children: [
+                  for (final c in Category.values)
+                    FilterChip(
+                      avatar: Icon(c.icon, size: 18),
+                      label: Text(c.label),
+                      showCheckmark: false,
+                      selected: _category == c,
+                      onSelected: (selected) => setState(() => _category = selected ? c : null),
+                    ),
+                ],
+              ),
+              if (_filter == TaskFilter.concluidas && hasCompleted)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _clearCompleted,
+                    icon: const Icon(Icons.cleaning_services_outlined),
+                    label: const Text('Limpar concluídas'),
+                  ),
+                ),
               const SizedBox(height: 12),
               if (visible.isEmpty)
                 _tasks.isEmpty
@@ -314,6 +369,7 @@ class _TasksScreenState extends State<TasksScreen> {
                           onToggle: () => _toggleDone(task),
                           onEdit: () => _openForm(task),
                           onDelete: () => _delete(task),
+                          onDuplicate: () => _duplicate(task),
                         ),
                       ),
                   ],
@@ -322,6 +378,22 @@ class _TasksScreenState extends State<TasksScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Linha de chips com rolagem horizontal (não quebra em telas estreitas).
+class _ChipsRow extends StatelessWidget {
+  final List<Widget> children;
+  const _ChipsRow({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [for (final c in children) Padding(padding: const EdgeInsets.only(right: 8), child: c)],
+      ),
     );
   }
 }

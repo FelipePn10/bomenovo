@@ -18,6 +18,10 @@ class Task(Base):
     priority: Mapped[str] = mapped_column(String(10), default="media")
     # Data limite (opcional). Usada no app para mostrar tarefas atrasadas
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Categoria: "faculdade", "trabalho", "pessoal", "casa", "saude" ou "outros"
+    category: Mapped[str] = mapped_column(String(20), default="outros")
+    # Quando a tarefa foi concluída (preenchido pelo serviço). Usado nas estatísticas do app
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
 

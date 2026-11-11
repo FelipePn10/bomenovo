@@ -149,3 +149,41 @@ def test_priority_and_due_date():
     # Prioridade inválida ou nula é recusada
     assert client.post("/tasks", json={"title": "X", "priority": "urgente"}, headers=h).status_code == 422
     assert client.put(f"/tasks/{task_id}", json={"priority": None}, headers=h).status_code == 400
+
+
+def test_category_and_completed_at():
+    h = auth_headers()
+    r = client.post("/tasks", json={"title": "TCC", "category": "faculdade"}, headers=h)
+    assert r.json()["category"] == "faculdade" and r.json()["completed_at"] is None
+    task_id = r.json()["id"]
+
+    # Concluir preenche completed_at; reabrir limpa
+    assert client.put(f"/tasks/{task_id}", json={"done": True}, headers=h).json()["completed_at"] is not None
+    assert client.put(f"/tasks/{task_id}", json={"done": False}, headers=h).json()["completed_at"] is None
+
+    assert client.post("/tasks", json={"title": "X", "category": "festa"}, headers=h).status_code == 422
+
+
+def test_delete_completed():
+    h = auth_headers()
+    client.post("/tasks", json={"title": "Feita 1", "done": True}, headers=h)
+    client.post("/tasks", json={"title": "Feita 2", "done": True}, headers=h)
+    client.post("/tasks", json={"title": "Pendente"}, headers=h)
+
+    r = client.delete("/tasks/concluidas", headers=h)
+    assert r.status_code == 200 and r.json()["deleted"] == 2
+    assert [t["title"] for t in client.get("/tasks", headers=h).json()] == ["Pendente"]
+
+
+def test_update_profile_and_password():
+    h = auth_headers()
+    r = client.put("/auth/me", json={"name": "Maria Souza"}, headers=h)
+    assert r.status_code == 200 and r.json()["name"] == "Maria Souza"
+
+    # Senha atual errada
+    r = client.put("/auth/password", json={"current_password": "errada", "new_password": "nova123"}, headers=h)
+    assert r.status_code == 400
+
+    r = client.put("/auth/password", json={"current_password": "senha123", "new_password": "nova123"}, headers=h)
+    assert r.status_code == 204
+    assert client.post("/auth/login", json={"email": USER["email"], "password": "nova123"}).status_code == 200

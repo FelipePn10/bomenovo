@@ -1,11 +1,11 @@
 """Rotas de autenticação: cadastro, login e dados do usuário logado."""
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserLogin, UserOut
+from app.schemas.user import PasswordChange, Token, UserCreate, UserLogin, UserOut, UserUpdate
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
@@ -44,3 +44,20 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
 def me(current_user: User = Depends(get_current_user)):
     """Devolve os dados do dono do token."""
     return current_user
+
+
+@router.put("/me", response_model=UserOut, summary="Editar o próprio perfil")
+def update_me(data: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Altera o nome do usuário logado."""
+    return AuthService(db).update_profile(current_user, data)
+
+
+@router.put(
+    "/password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Trocar a senha",
+    responses={400: {"description": "Senha atual incorreta"}},
+)
+def change_password(data: PasswordChange, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    AuthService(db).change_password(current_user, data)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

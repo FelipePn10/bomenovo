@@ -17,6 +17,17 @@ class UserLogin(BaseModel):
     password: str = Field(examples=["senha123"])
 
 
+class UserUpdate(BaseModel):
+    """Dados que o usuário pode alterar no próprio perfil."""
+    name: str = Field(min_length=2, max_length=100)
+
+
+class PasswordChange(BaseModel):
+    """Troca de senha: exige a senha atual por segurança."""
+    current_password: str
+    new_password: str = Field(min_length=6, max_length=72)
+
+
 class UserOut(BaseModel):
     """Dados do usuário devolvidos pela API (sem a senha!)."""
     model_config = ConfigDict(from_attributes=True)

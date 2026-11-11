@@ -1,3 +1,5 @@
+import '../utils/dates.dart';
+
 /// Usuário logado (resposta de GET /auth/me).
 class User {
   final String name;
@@ -7,7 +9,7 @@ class User {
   User({required this.name, required this.email, required this.createdAt});
 
   factory User.fromJson(Map<String, dynamic> json) =>
-      User(name: json['name'], email: json['email'], createdAt: DateTime.parse(json['created_at']).toLocal());
+      User(name: json['name'], email: json['email'], createdAt: parseApiDateTime(json['created_at']));
 
   String get firstName => name.trim().split(' ').first;
 

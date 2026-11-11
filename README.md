@@ -2,7 +2,7 @@
 
 Trabalho prático: uma **API RESTful em FastAPI** com CRUD de **tarefas** e autenticação **JWT**, consumida por um **app Flutter** e por uma **interface web em Python (Flask)**.
 
-- Recurso do CRUD: **tarefas** (cada usuário vê e altera apenas as próprias), com prioridade e data limite
+- Recurso do CRUD: **tarefas** (cada usuário vê e altera apenas as próprias), com prioridade, categoria e data limite
 - Banco: **SQLite** (arquivo `backend/tarefas.db`, criado automaticamente) ou **PostgreSQL** quando hospedado
 - Senhas salvas com **bcrypt**; rotas de tarefas protegidas por **Bearer token (JWT)**
 - Documentação automática: **Swagger** em http://localhost:8000/docs
@@ -34,8 +34,8 @@ Trabalho prático: uma **API RESTful em FastAPI** com CRUD de **tarefas** e aute
 │       ├── models/            # Task (com prioridade e data limite) e User
 │       ├── services/api_service.dart   # Chamadas HTTP, token e endereço do servidor
 │       ├── utils/dates.dart   # Formatação de datas ("Hoje", "Atrasada há 2 dias"...)
-│       ├── widgets/           # Componentes reutilizados (card da tarefa, progresso...)
-│       └── screens/           # login, cadastro, tarefas, formulário e perfil
+│       ├── widgets/           # Componentes reutilizados (card da tarefa, progresso, janelas...)
+│       └── screens/           # login, cadastro, tarefas, formulário, estatísticas e perfil
 ├── render.yaml                # Deploy gratuito da API no Render
 └── .github/workflows/android.yml   # Gera o APK automaticamente no GitHub
 ```
@@ -61,17 +61,20 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | POST   | `/auth/register` |           | Cadastrar usuário                  | 201     |
 | POST   | `/auth/login`    |           | Login, devolve o token JWT         | 200     |
 | GET    | `/auth/me`       | ✅        | Dados do usuário logado            | 200     |
+| PUT    | `/auth/me`       | ✅        | Alterar o nome                     | 200     |
+| PUT    | `/auth/password` | ✅        | Trocar a senha (pede a atual)      | 204     |
 | GET    | `/tasks`         | ✅        | Listar tarefas do usuário          | 200     |
 | GET    | `/tasks/{id}`    | ✅        | Buscar tarefa por ID               | 200     |
 | POST   | `/tasks`         | ✅        | Criar tarefa                       | 201     |
 | PUT    | `/tasks/{id}`    | ✅        | Atualizar tarefa (campos enviados) | 200     |
 | DELETE | `/tasks/{id}`    | ✅        | Excluir tarefa                     | 204     |
+| DELETE | `/tasks/concluidas` | ✅     | Excluir todas as concluídas        | 200     |
 
 ### Erros
 
 | Código | Quando                                       | Exemplo de resposta |
 |--------|----------------------------------------------|---------------------|
-| 400    | `PUT` sem nenhum campo (ou título/prioridade nulos) | `{"detail": "Envie ao menos um campo para atualizar."}` |
+| 400    | `PUT` sem nenhum campo (ou título/prioridade/categoria nulos) | `{"detail": "Envie ao menos um campo para atualizar."}` |
 | 401    | Sem token                                    | `{"detail": "Token de acesso não informado. Envie o header 'Authorization: Bearer <token>'."}` |
 | 401    | Token inválido/expirado                      | `{"detail": "Token inválido ou expirado. Faça login novamente."}` |
 | 401    | Login com e-mail/senha errados               | `{"detail": "E-mail ou senha inválidos."}` |
@@ -105,7 +108,7 @@ curl http://localhost:8000/auth/me -H "Authorization: Bearer $TOKEN"
 # Create (priority: "baixa" | "media" | "alta"; due_date é opcional)
 curl -X POST http://localhost:8000/tasks \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"title": "Estudar FastAPI", "description": "Ler a documentação", "priority": "alta", "due_date": "2026-12-01"}'
+  -d '{"title": "Estudar FastAPI", "description": "Ler a documentação", "priority": "alta", "category": "faculdade", "due_date": "2026-12-01"}'
 
 # Read (todas / por ID)
 curl http://localhost:8000/tasks   -H "Authorization: Bearer $TOKEN"
@@ -131,8 +134,10 @@ Os mesmos exemplos estão em `backend/requests.http`.
 | `done`        | booleano                     | não         | padrão `false`                      |
 | `priority`    | `baixa`, `media` ou `alta`   | não         | padrão `media`                      |
 | `due_date`    | data `AAAA-MM-DD`            | não         | enviar `null` no `PUT` remove a data |
+| `category`    | `faculdade`, `trabalho`, `pessoal`, `casa`, `saude` ou `outros` | não | padrão `outros` |
+| `completed_at`| data e hora                  | (só leitura) | preenchido pela API ao concluir; volta a `null` ao reabrir |
 
-Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao iniciar, a API adiciona as colunas novas (`priority` e `due_date`) sozinha.
+Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao iniciar, a API adiciona as colunas novas (`priority`, `due_date`, `category` e `completed_at`) sozinha.
 
 ## App Flutter
 
@@ -140,11 +145,13 @@ Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao inici
 
 - Cadastro (com confirmação de senha) e login; depois do cadastro o login é feito automaticamente
 - Sessão salva no aparelho: abrindo o app de novo, vai direto para as tarefas. Se o token expirar, volta para o login com o aviso da API
-- Lista com card de progresso (% concluído, pendentes, para hoje e atrasadas)
-- Busca por título/descrição, filtros (todas, pendentes, atrasadas, concluídas) e ordenação (mais recentes, data limite, prioridade)
-- Criar e editar tarefa com prioridade, data limite (calendário em português + atalhos "Hoje", "Amanhã", "Em 1 semana") e status
-- Gestos nos cards: arrastar para a direita conclui/reabre, para a esquerda exclui (com confirmação)
-- Perfil com dados da conta, estatísticas, tema claro/escuro/automático e troca do servidor da API
+- Saudação de acordo com a hora ("Bom dia", "Boa tarde", "Boa noite") e card de progresso (% concluído, pendentes, para hoje e atrasadas)
+- Busca por título/descrição, filtros por status (todas, pendentes, atrasadas, concluídas) e por categoria, e ordenação (mais recentes, data limite, prioridade)
+- Criar e editar tarefa com categoria, prioridade, data limite (calendário em português + atalhos "Hoje", "Amanhã", "Em 1 semana") e status
+- Gestos nos cards: arrastar para a direita conclui/reabre, para a esquerda exclui
+- Exclusão com botão **Desfazer**, opção de **duplicar** tarefa e **limpar todas as concluídas** (aparece no filtro "Concluídas")
+- Tela de **estatísticas**: taxa de conclusão, tarefas concluídas em cada um dos últimos 7 dias, pendentes por prioridade e tarefas por categoria
+- Perfil com dados da conta, **editar nome**, **alterar senha**, tema claro/escuro/automático e troca do servidor da API
 - Layout responsivo: no celular a lista tem 1 coluna; em tablet, celular deitado ou navegador vira 2 colunas, e os formulários ficam centralizados com largura limitada
 
 ### Rodando em modo de desenvolvimento

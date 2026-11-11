@@ -20,6 +20,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   late final _title = TextEditingController(text: widget.task?.title);
   late final _description = TextEditingController(text: widget.task?.description);
   late Priority _priority = widget.task?.priority ?? Priority.media;
+  late Category _category = widget.task?.category ?? Category.outros;
   late DateTime? _dueDate = widget.task?.dueDate;
   late bool _done = widget.task?.done ?? false;
   bool _saving = false;
@@ -53,6 +54,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       'title': _title.text.trim(),
       'description': description.isEmpty ? null : description,
       'priority': _priority.name,
+      'category': _category.name,
       'due_date': _dueDate == null ? null : toApiDate(_dueDate!),
       if (_isEditing) 'done': _done,
     };
@@ -102,6 +104,24 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   decoration: const InputDecoration(labelText: 'Descrição (opcional)', alignLabelWithHint: true),
                   minLines: 3,
                   maxLines: 6,
+                ),
+                const SizedBox(height: 24),
+
+                Text('Categoria', style: text.titleSmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final c in Category.values)
+                      ChoiceChip(
+                        avatar: Icon(c.icon, size: 18),
+                        label: Text(c.label),
+                        showCheckmark: false,
+                        selected: _category == c,
+                        onSelected: (_) => setState(() => _category = c),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 24),
 

@@ -132,6 +132,20 @@ class ApiService {
     return User.fromJson(data);
   }
 
+  /// Altera o nome do usuário logado.
+  Future<User> updateName(String name) async {
+    final data = await _send(() => http.put(_uri('/auth/me'), headers: _headers, body: jsonEncode({'name': name})));
+    return User.fromJson(data);
+  }
+
+  Future<void> changePassword(String current, String newPassword) => _send(
+    () => http.put(
+      _uri('/auth/password'),
+      headers: _headers,
+      body: jsonEncode({'current_password': current, 'new_password': newPassword}),
+    ),
+  );
+
   // ---------- CRUD de tarefas ----------
 
   Future<List<Task>> listTasks() async {
@@ -150,6 +164,12 @@ class ApiService {
   Future<Task> updateTask(int id, Map<String, dynamic> changes) async {
     final json = await _send(() => http.put(_uri('/tasks/$id'), headers: _headers, body: jsonEncode(changes)));
     return Task.fromJson(json);
+  }
+
+  /// Apaga todas as tarefas concluídas de uma vez. Retorna quantas foram apagadas.
+  Future<int> deleteCompleted() async {
+    final data = await _send(() => http.delete(_uri('/tasks/concluidas'), headers: _headers));
+    return data['deleted'];
   }
 
   Future<void> deleteTask(int id) => _send(() => http.delete(_uri('/tasks/$id'), headers: _headers));

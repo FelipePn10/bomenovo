@@ -24,3 +24,22 @@ String dueDateLabel(DateTime due) {
   if (days < 7) return 'Em $days dias';
   return formatDate(due);
 }
+
+/// Lê data/hora vinda da API e converte para o fuso do aparelho.
+/// O SQLite devolve a hora sem fuso ("2026-11-11T12:20:36"); nesse caso ela está em UTC,
+/// então o "Z" é adicionado antes de converter.
+DateTime parseApiDateTime(String value) {
+  final hasTimezone = RegExp(r'(Z|[+-]\d\d:?\d\d)$').hasMatch(value);
+  return DateTime.parse(hasTimezone ? value : '${value}Z').toLocal();
+}
+
+/// Nome curto do dia da semana: "seg", "ter"...
+String weekdayShort(DateTime d) => const ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'][d.weekday - 1];
+
+/// Saudação de acordo com a hora do dia.
+String greeting() {
+  final hour = DateTime.now().hour;
+  if (hour < 12) return 'Bom dia';
+  if (hour < 18) return 'Boa tarde';
+  return 'Boa noite';
+}

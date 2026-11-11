@@ -1,5 +1,5 @@
 """Acesso aos dados de tarefas. Toda consulta é filtrada pelo dono da tarefa."""
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.task import Task
@@ -34,3 +34,9 @@ class TaskRepository:
     def delete(self, task: Task) -> None:
         self.db.delete(task)
         self.db.commit()
+
+    def delete_completed(self, owner_id: int) -> int:
+        stmt = delete(Task).where(Task.owner_id == owner_id, Task.done.is_(True))
+        result = self.db.execute(stmt)
+        self.db.commit()
+        return result.rowcount

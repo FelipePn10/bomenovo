@@ -40,6 +40,8 @@ def add_missing_columns() -> None:
     new_columns = {
         "priority": "VARCHAR(10) NOT NULL DEFAULT 'media'",
         "due_date": "DATE",
+        "category": "VARCHAR(20) NOT NULL DEFAULT 'outros'",
+        "completed_at": "TIMESTAMP WITH TIME ZONE",
     }
     with engine.begin() as conn:
         for name, ddl in new_columns.items():

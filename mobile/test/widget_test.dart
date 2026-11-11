@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tarefas_app/main.dart';
 import 'package:tarefas_app/models/task.dart';
+import 'package:tarefas_app/screens/stats_screen.dart';
 import 'package:tarefas_app/utils/dates.dart';
 
 void main() {
@@ -56,5 +57,47 @@ void main() {
     expect(dueDateLabel(today()), 'Hoje');
     expect(dueDateLabel(today().add(const Duration(days: 1))), 'Amanhã');
     expect(dueDateLabel(today().subtract(const Duration(days: 3))), 'Atrasada há 3 dias');
+  });
+
+  test('Task.toJson gera o corpo aceito pela API (usado no desfazer/duplicar)', () {
+    final task = Task.fromJson({
+      'id': 7,
+      'title': 'TCC',
+      'description': 'Capítulo 2',
+      'done': false,
+      'priority': 'media',
+      'category': 'faculdade',
+      'due_date': '2026-12-01',
+      'created_at': '2026-11-01T10:00:00',
+    });
+    expect(task.category, Category.faculdade);
+    expect(task.toJson(), {
+      'title': 'TCC',
+      'description': 'Capítulo 2',
+      'done': false,
+      'priority': 'media',
+      'category': 'faculdade',
+      'due_date': '2026-12-01',
+    });
+  });
+
+  test('Data sem fuso vinda do SQLite é tratada como UTC', () {
+    expect(parseApiDateTime('2026-11-11T12:00:00'), DateTime.utc(2026, 11, 11, 12).toLocal());
+    expect(parseApiDateTime('2026-11-11T12:00:00+00:00'), DateTime.utc(2026, 11, 11, 12).toLocal());
+  });
+
+  testWidgets('Estatísticas mostram a taxa de conclusão', (tester) async {
+    Task task(int id, bool done) => Task.fromJson({
+      'id': id,
+      'title': 'T$id',
+      'done': done,
+      'priority': 'alta',
+      'category': 'casa',
+      'completed_at': done ? DateTime.now().toUtc().toIso8601String() : null,
+      'created_at': '2026-11-01T10:00:00Z',
+    });
+    await tester.pumpWidget(MaterialApp(home: StatsScreen(tasks: [task(1, true), task(2, false)])));
+    expect(find.text('50%'), findsOneWidget);
+    expect(find.text('Concluídas nos últimos 7 dias'), findsOneWidget);
   });
 }

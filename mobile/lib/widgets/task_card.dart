@@ -11,9 +11,17 @@ class TaskCard extends StatelessWidget {
   final Task task;
   final VoidCallback onToggle;
   final VoidCallback onEdit;
-  final Future<void> Function() onDelete;
+  final VoidCallback onDelete;
+  final VoidCallback onDuplicate;
 
-  const TaskCard({super.key, required this.task, required this.onToggle, required this.onEdit, required this.onDelete});
+  const TaskCard({
+    super.key,
+    required this.task,
+    required this.onToggle,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onDuplicate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +38,7 @@ class TaskCard extends StatelessWidget {
         if (direction == DismissDirection.startToEnd) {
           onToggle();
         } else {
-          await onDelete();
+          onDelete(); // a exclusão pode ser desfeita pelo SnackBar
         }
         return false;
       },
@@ -83,6 +91,7 @@ class TaskCard extends StatelessWidget {
                           runSpacing: 6,
                           children: [
                             _Tag(icon: Icons.flag, label: task.priority.label, color: task.priority.color),
+                            _Tag(icon: task.category.icon, label: task.category.label, color: colors.onSurfaceVariant),
                             if (task.dueDate != null)
                               _Tag(
                                 icon: Icons.event,
@@ -96,11 +105,20 @@ class TaskCard extends StatelessWidget {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  onSelected: (value) => value == 'edit' ? onEdit() : onDelete(),
+                  // Cada opção do menu chama a função correspondente recebida pela tela
+                  onSelected: (value) => switch (value) {
+                    'edit' => onEdit(),
+                    'duplicate' => onDuplicate(),
+                    _ => onDelete(),
+                  },
                   itemBuilder: (_) => const [
                     PopupMenuItem(
                       value: 'edit',
                       child: ListTile(leading: Icon(Icons.edit), title: Text('Editar')),
+                    ),
+                    PopupMenuItem(
+                      value: 'duplicate',
+                      child: ListTile(leading: Icon(Icons.copy), title: Text('Duplicar')),
                     ),
                     PopupMenuItem(
                       value: 'delete',

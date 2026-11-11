@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.schemas.user import UserCreate, UserLogin
+from app.schemas.user import PasswordChange, UserCreate, UserLogin, UserUpdate
 
 
 class AuthService:
@@ -25,3 +25,12 @@ class AuthService:
         if not user or not verify_password(data.password, user.hashed_password):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="E-mail ou senha inválidos.")
         return create_access_token(str(user.id)), user
+
+    def update_profile(self, user: User, data: UserUpdate) -> User:
+        return self.users.update(user, name=data.name.strip())
+
+    def change_password(self, user: User, data: PasswordChange) -> None:
+        """Só troca a senha se a senha atual estiver correta."""
+        if not verify_password(data.current_password, user.hashed_password):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="A senha atual está incorreta.")
+        self.users.update(user, hashed_password=hash_password(data.new_password))
