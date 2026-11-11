@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -5,10 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
 import '../models/task.dart';
+import '../models/user.dart';
 
 /// Erro vindo da API, com a mensagem amigável enviada pelo backend.
 class ApiException implements Exception {
-  final int statusCode;
+  final int statusCode; // 0 = não chegou a falar com o servidor
   final String message;
   ApiException(this.statusCode, this.message);
 
@@ -19,13 +21,44 @@ class ApiException implements Exception {
 /// Centraliza todas as chamadas HTTP para o backend FastAPI.
 class ApiService {
   static const _tokenKey = 'access_token';
-  String? _token;
+  static const _urlKey = 'api_url';
 
-  /// Carrega o token salvo no aparelho (mantém o usuário logado).
-  Future<bool> loadToken() async {
+  // A API gratuita (Render) "dorme" quando fica parada e leva um tempo para acordar
+  static const _timeout = Duration(seconds: 60);
+
+  String? _token;
+  String baseUrl = defaultApiUrl;
+
+  /// Lê do aparelho o token e o endereço do servidor salvos.
+  /// Retorna true se já existe um login (abre o app direto nas tarefas).
+  Future<bool> init() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_tokenKey);
+    baseUrl = prefs.getString(_urlKey) ?? defaultApiUrl;
     return _token != null;
+  }
+
+  /// Troca o endereço da API. Passar null volta para o endereço padrão.
+  Future<void> setBaseUrl(String? url) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (url == null || url.trim().isEmpty) {
+      baseUrl = defaultApiUrl;
+      await prefs.remove(_urlKey);
+    } else {
+      // Remove a barra final para não gerar URLs como "...8000//tasks"
+      baseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
+      await prefs.setString(_urlKey, baseUrl);
+    }
+  }
+
+  /// Testa se existe uma API respondendo no endereço (rota GET /).
+  Future<bool> ping(String url) async {
+    try {
+      final res = await http.get(Uri.parse(url)).timeout(_timeout);
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> logout() async {
@@ -35,26 +68,37 @@ class ApiService {
   }
 
   Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        // Rotas protegidas exigem o header Authorization: Bearer <token>
-        if (_token != null) 'Authorization': 'Bearer $_token',
-      };
+    'Content-Type': 'application/json',
+    // Rotas protegidas exigem o header Authorization: Bearer <token>
+    if (_token != null) 'Authorization': 'Bearer $_token',
+  };
 
-  /// Executa a requisição e converte erros HTTP em ApiException.
+  Uri _uri(String path) => Uri.parse('$baseUrl$path');
+
+  /// Executa a requisição e converte qualquer falha em ApiException,
+  /// assim as telas só precisam tratar um tipo de erro.
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     http.Response res;
     try {
-      res = await request();
+      res = await request().timeout(_timeout);
+    } on TimeoutException {
+      throw ApiException(
+        0,
+        'O servidor demorou para responder. Se a API estiver no plano gratuito, '
+        'ela pode estar iniciando: tente de novo em alguns segundos.',
+      );
     } catch (_) {
-      throw ApiException(0, 'Não foi possível conectar à API em $apiUrl');
+      throw ApiException(0, 'Não foi possível conectar à API em $baseUrl');
     }
+
+    // utf8.decode garante que acentos (ç, ã, é) cheguem corretos
     final body = res.body.isEmpty ? null : jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 200 && res.statusCode < 300) return body;
 
     var message = 'Erro ${res.statusCode}';
     if (body is Map && body['detail'] is String) {
       message = body['detail'];
-      // Erros de validação trazem a lista de campos inválidos
+      // Erros de validação (422) trazem a lista de campos inválidos
       if (body['errors'] is List && (body['errors'] as List).isNotEmpty) {
         final e = body['errors'][0];
         message += '\n${e['campo']}: ${e['erro']}';
@@ -63,30 +107,29 @@ class ApiService {
     throw ApiException(res.statusCode, message);
   }
 
-  Uri _uri(String path) => Uri.parse('$apiUrl$path');
-
   // ---------- Autenticação ----------
 
-  Future<void> register(String name, String email, String password) => _send(() => http.post(
-        _uri('/auth/register'),
-        headers: _headers,
-        body: jsonEncode({'name': name, 'email': email, 'password': password}),
-      ));
+  Future<void> register(String name, String email, String password) => _send(
+    () => http.post(
+      _uri('/auth/register'),
+      headers: _headers,
+      body: jsonEncode({'name': name, 'email': email, 'password': password}),
+    ),
+  );
 
   Future<void> login(String email, String password) async {
-    final data = await _send(() => http.post(
-          _uri('/auth/login'),
-          headers: _headers,
-          body: jsonEncode({'email': email, 'password': password}),
-        ));
+    final data = await _send(
+      () => http.post(_uri('/auth/login'), headers: _headers, body: jsonEncode({'email': email, 'password': password})),
+    );
+    // Salva o token no aparelho para não precisar logar toda vez
     _token = data['access_token'];
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, _token!);
   }
 
-  Future<String> currentUserName() async {
+  Future<User> currentUser() async {
     final data = await _send(() => http.get(_uri('/auth/me'), headers: _headers));
-    return data['name'];
+    return User.fromJson(data);
   }
 
   // ---------- CRUD de tarefas ----------
@@ -96,28 +139,17 @@ class ApiService {
     return data.map((e) => Task.fromJson(e)).toList();
   }
 
-  Future<Task> createTask(String title, String? description) async {
-    final data = await _send(() => http.post(
-          _uri('/tasks'),
-          headers: _headers,
-          body: jsonEncode({'title': title, 'description': description}),
-        ));
-    return Task.fromJson(data);
+  /// [data] segue o formato da API: title, description, priority, due_date...
+  Future<Task> createTask(Map<String, dynamic> data) async {
+    final json = await _send(() => http.post(_uri('/tasks'), headers: _headers, body: jsonEncode(data)));
+    return Task.fromJson(json);
   }
 
-  Future<Task> updateTask(int id, {String? title, String? description, bool? done}) async {
-    final data = await _send(() => http.put(
-          _uri('/tasks/$id'),
-          headers: _headers,
-          body: jsonEncode({
-            // Envia apenas os campos informados (atualização parcial).
-            // O '?' antes do valor omite a chave quando o valor é null.
-            'title': ?title,
-            'description': ?description,
-            'done': ?done,
-          }),
-        ));
-    return Task.fromJson(data);
+  /// Atualização parcial: só os campos presentes em [changes] são alterados.
+  /// Ex.: updateTask(1, {'done': true})
+  Future<Task> updateTask(int id, Map<String, dynamic> changes) async {
+    final json = await _send(() => http.put(_uri('/tasks/$id'), headers: _headers, body: jsonEncode(changes)));
+    return Task.fromJson(json);
   }
 
   Future<void> deleteTask(int id) => _send(() => http.delete(_uri('/tasks/$id'), headers: _headers));

@@ -1,13 +1,15 @@
 name: tarefas_app
-description: "A new Flutter project."
+description: "App de tarefas (Flutter) que consome a API FastAPI do trabalho."
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.13.0
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations: # calendário e textos do Material em português
     sdk: flutter
   http: ^1.6.0
   shared_preferences: ^2.5.6

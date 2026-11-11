@@ -128,3 +128,24 @@ def test_user_cannot_access_other_users_task():
     assert client.get(f"/tasks/{task_id}", headers=h2).status_code == 404
     assert client.delete(f"/tasks/{task_id}", headers=h2).status_code == 404
     assert client.get("/tasks", headers=h2).json() == []
+
+
+def test_priority_and_due_date():
+    h = auth_headers()
+
+    # Sem informar, a prioridade padrão é "media" e não há data limite
+    r = client.post("/tasks", json={"title": "Padrão"}, headers=h)
+    assert r.json()["priority"] == "media" and r.json()["due_date"] is None
+
+    r = client.post("/tasks", json={"title": "Prova", "priority": "alta", "due_date": "2026-12-01"}, headers=h)
+    assert r.status_code == 201
+    task_id = r.json()["id"]
+    assert r.json()["priority"] == "alta" and r.json()["due_date"] == "2026-12-01"
+
+    # Enviar due_date null remove a data
+    r = client.put(f"/tasks/{task_id}", json={"due_date": None}, headers=h)
+    assert r.json()["due_date"] is None
+
+    # Prioridade inválida ou nula é recusada
+    assert client.post("/tasks", json={"title": "X", "priority": "urgente"}, headers=h).status_code == 422
+    assert client.put(f"/tasks/{task_id}", json={"priority": None}, headers=h).status_code == 400

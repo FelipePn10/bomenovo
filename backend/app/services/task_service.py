@@ -31,8 +31,10 @@ class TaskService:
         changes = data.model_dump(exclude_unset=True)
         if not changes:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Envie ao menos um campo para atualizar.")
-        if "title" in changes and changes["title"] is None:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="O título não pode ser nulo.")
+        # Título e prioridade são obrigatórios: não podem virar null
+        for field in ("title", "priority"):
+            if field in changes and changes[field] is None:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"O campo '{field}' não pode ser nulo.")
         return self.tasks.update(task, **changes)
 
     def delete(self, task_id: int) -> None:

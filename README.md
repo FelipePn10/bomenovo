@@ -2,8 +2,8 @@
 
 Trabalho prático: uma **API RESTful em FastAPI** com CRUD de **tarefas** e autenticação **JWT**, consumida por um **app Flutter** e por uma **interface web em Python (Flask)**.
 
-- Recurso do CRUD: **tarefas** (cada usuário vê e altera apenas as próprias)
-- Banco: **SQLite** (arquivo `backend/tarefas.db`, criado automaticamente)
+- Recurso do CRUD: **tarefas** (cada usuário vê e altera apenas as próprias), com prioridade e data limite
+- Banco: **SQLite** (arquivo `backend/tarefas.db`, criado automaticamente) ou **PostgreSQL** quando hospedado
 - Senhas salvas com **bcrypt**; rotas de tarefas protegidas por **Bearer token (JWT)**
 - Documentação automática: **Swagger** em http://localhost:8000/docs
 
@@ -24,13 +24,18 @@ Trabalho prático: uma **API RESTful em FastAPI** com CRUD de **tarefas** e aute
 │   ├── requests.http          # Exemplos de requisições
 │   └── requirements.txt
 ├── web/                       # Interface web em Flask (consome a mesma API) — veja web/README.md
-└── mobile/                    # App Flutter
-    └── lib/
-        ├── main.dart
-        ├── config.dart        # URL da API
-        ├── models/task.dart
-        ├── services/api_service.dart   # Chamadas HTTP + token
-        └── screens/           # login, cadastro, lista e formulário de tarefas
+├── mobile/                    # App Flutter
+│   └── lib/
+│       ├── main.dart          # Inicia o app (token, tema, idioma pt-BR)
+│       ├── config.dart        # URL padrão da API
+│       ├── theme.dart         # Cores, estilo dos componentes e modo claro/escuro
+│       ├── models/            # Task (com prioridade e data limite) e User
+│       ├── services/api_service.dart   # Chamadas HTTP, token e endereço do servidor
+│       ├── utils/dates.dart   # Formatação de datas ("Hoje", "Atrasada há 2 dias"...)
+│       ├── widgets/           # Componentes reutilizados (card da tarefa, progresso...)
+│       └── screens/           # login, cadastro, tarefas, formulário e perfil
+├── render.yaml                # Deploy gratuito da API no Render
+└── .github/workflows/android.yml   # Gera o APK automaticamente no GitHub
 ```
 
 ## Como rodar o backend
@@ -64,7 +69,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 | Código | Quando                                       | Exemplo de resposta |
 |--------|----------------------------------------------|---------------------|
-| 400    | `PUT` sem nenhum campo                       | `{"detail": "Envie ao menos um campo para atualizar."}` |
+| 400    | `PUT` sem nenhum campo (ou título/prioridade nulos) | `{"detail": "Envie ao menos um campo para atualizar."}` |
 | 401    | Sem token                                    | `{"detail": "Token de acesso não informado. Envie o header 'Authorization: Bearer <token>'."}` |
 | 401    | Token inválido/expirado                      | `{"detail": "Token inválido ou expirado. Faça login novamente."}` |
 | 401    | Login com e-mail/senha errados               | `{"detail": "E-mail ou senha inválidos."}` |
@@ -95,10 +100,10 @@ curl http://localhost:8000/tasks
 # Rota protegida COM token
 curl http://localhost:8000/auth/me -H "Authorization: Bearer $TOKEN"
 
-# Create
+# Create (priority: "baixa" | "media" | "alta"; due_date é opcional)
 curl -X POST http://localhost:8000/tasks \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"title": "Estudar FastAPI", "description": "Ler a documentação"}'
+  -d '{"title": "Estudar FastAPI", "description": "Ler a documentação", "priority": "alta", "due_date": "2026-12-01"}'
 
 # Read (todas / por ID)
 curl http://localhost:8000/tasks   -H "Authorization: Bearer $TOKEN"
@@ -115,7 +120,32 @@ curl -X DELETE http://localhost:8000/tasks/1 -H "Authorization: Bearer $TOKEN"
 
 Os mesmos exemplos estão em `backend/requests.http`.
 
-## Como rodar o app Flutter
+### Campos da tarefa
+
+| Campo         | Tipo                         | Obrigatório | Observação                          |
+|---------------|------------------------------|:-----------:|-------------------------------------|
+| `title`       | texto (1 a 120)              | sim         |                                     |
+| `description` | texto                        | não         |                                     |
+| `done`        | booleano                     | não         | padrão `false`                      |
+| `priority`    | `baixa`, `media` ou `alta`   | não         | padrão `media`                      |
+| `due_date`    | data `AAAA-MM-DD`            | não         | enviar `null` no `PUT` remove a data |
+
+Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao iniciar, a API adiciona as colunas novas (`priority` e `due_date`) sozinha.
+
+## App Flutter
+
+### Funcionalidades
+
+- Cadastro (com confirmação de senha) e login; depois do cadastro o login é feito automaticamente
+- Sessão salva no aparelho: abrindo o app de novo, vai direto para as tarefas. Se o token expirar, volta para o login com o aviso da API
+- Lista com card de progresso (% concluído, pendentes, para hoje e atrasadas)
+- Busca por título/descrição, filtros (todas, pendentes, atrasadas, concluídas) e ordenação (mais recentes, data limite, prioridade)
+- Criar e editar tarefa com prioridade, data limite (calendário em português + atalhos "Hoje", "Amanhã", "Em 1 semana") e status
+- Gestos nos cards: arrastar para a direita conclui/reabre, para a esquerda exclui (com confirmação)
+- Perfil com dados da conta, estatísticas, tema claro/escuro/automático e troca do servidor da API
+- Layout responsivo: no celular a lista tem 1 coluna; em tablet, celular deitado ou navegador vira 2 colunas, e os formulários ficam centralizados com largura limitada
+
+### Rodando em modo de desenvolvimento
 
 Com o backend rodando:
 
@@ -123,16 +153,93 @@ Com o backend rodando:
 cd mobile
 flutter pub get
 flutter run                 # escolha o dispositivo (emulador Android, Chrome, etc.)
+flutter test                # testes do app
 ```
 
-A URL da API é definida em `lib/config.dart`:
+### Endereço da API
 
-- **Emulador Android:** usa `http://10.0.2.2:8000` automaticamente (é o localhost do computador).
-- **Web/Desktop:** usa `http://localhost:8000`.
-- **Celular físico** (mesma rede Wi-Fi): informe o IP do computador:
-  `flutter run --dart-define=API_URL=http://192.168.0.10:8000`
+O app precisa saber onde a API está. A ordem é:
 
-Funcionalidades do app: cadastro, login (token salvo no aparelho com `shared_preferences`), listar tarefas, criar, editar, marcar como concluída, excluir e sair. Se o token expirar, o app volta para o login mostrando a mensagem da API.
+1. O endereço salvo no próprio app (botão **Servidor** na tela de login, ou em **Perfil > Servidor da API**). Tem um botão **Testar** para conferir se a API responde.
+2. O valor passado na compilação: `flutter run --dart-define=API_URL=http://192.168.0.10:8000`
+3. O padrão: `http://10.0.2.2:8000` no emulador Android (é o localhost do computador) e `http://localhost:8000` na web/desktop.
+
+No **celular físico** com a API rodando no computador, os dois precisam estar na mesma rede Wi-Fi e o endereço é o IP do computador (descubra com `ip a` no Linux ou `ipconfig` no Windows), por exemplo `http://192.168.0.10:8000`. Lembre de iniciar o uvicorn com `--host 0.0.0.0`.
+
+## Hospedando a API de graça (Render)
+
+Dá para fazer de dois jeitos. O manual é o mais garantido.
+
+### Opção 1: manual (Postgres + Web Service)
+
+Crie uma conta em https://render.com (dá para entrar com o GitHub) e siga os passos abaixo.
+
+**1. Banco de dados:** **New > Postgres**
+
+- Name: `tarefas-db`
+- Plan: **Free**
+- Depois de criado, copie o **Internal Database URL**, que fica na página do banco, em *Connections*.
+
+**2. API:** **New > Web Service**, escolha este repositório e preencha:
+
+| Campo          | Valor                                                   |
+|----------------|---------------------------------------------------------|
+| Language       | Python 3                                                |
+| Branch         | `main`                                                  |
+| Root Directory | `backend`                                               |
+| Build Command  | `pip install -r requirements.txt`                       |
+| Start Command  | `uvicorn app.main:app --host 0.0.0.0 --port $PORT`      |
+| Instance Type  | **Free**                                                |
+
+Em **Environment Variables**, adicione:
+
+| Variável                      | Valor                                                              |
+|-------------------------------|--------------------------------------------------------------------|
+| `DATABASE_URL`                | a Internal Database URL copiada no passo 1                         |
+| `SECRET_KEY`                  | um texto aleatório (`python -c "import secrets; print(secrets.token_hex(32))"`) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` (token vale 24h)                                            |
+
+**3.** Clique em **Deploy Web Service**. Quando terminar, a API fica em algo como `https://api-tarefas.onrender.com` (o Swagger fica em `/docs`).
+
+**4.** Use esse endereço no app (botão **Servidor**) ou coloque como padrão do APK (veja a seção sobre o APK).
+
+### Opção 2: Blueprint (automático)
+
+O arquivo `render.yaml` cria a API e o banco de uma vez. No painel do Render, vá em **Blueprints** (menu lateral) > **New Blueprint Instance** e selecione este repositório. O repositório precisa estar no GitHub com o `render.yaml` na raiz.
+
+Limitações do plano gratuito: a API "dorme" depois de 15 minutos sem uso e a primeira requisição pode levar uns 50 segundos (o app espera até 60s e avisa se demorar). O PostgreSQL gratuito do Render expira depois de 30 dias; se precisar de mais tempo, dá para criar um banco grátis no [Neon](https://neon.tech) e colocar a URL dele na variável `DATABASE_URL` do serviço.
+
+## Gerando o APK (Android)
+
+### Pelo GitHub (não precisa instalar nada)
+
+O workflow `.github/workflows/android.yml` compila o APK no GitHub Actions, rodando antes o `flutter analyze` e os testes.
+
+- **A cada push na `main`** que altere o app: o APK aparece na aba **Actions**, dentro da execução, em **Artifacts** (vem compactado em .zip).
+- **Para gerar uma versão para download**, crie uma tag:
+
+  ```bash
+  git tag v1.0.0
+  git push origin v1.0.0
+  ```
+
+  O APK (`minhas-tarefas.apk`) fica na página **Releases** do repositório.
+
+Para o APK já vir apontando para a API hospedada, crie a variável `API_URL` em **Settings > Secrets and variables > Actions > Variables** com o endereço do Render. Sem ela, o endereço pode ser configurado dentro do app.
+
+### Na própria máquina
+
+Precisa do Android SDK (vem com o Android Studio):
+
+```bash
+cd mobile
+flutter build apk --release --dart-define=API_URL=https://api-tarefas.onrender.com
+# APK gerado em: mobile/build/app/outputs/flutter-apk/app-release.apk
+```
+
+### Instalando no celular
+
+Baixe o `.apk` no celular e abra. O Android vai pedir para permitir a instalação de "fontes desconhecidas" para o navegador/gerenciador de arquivos; é normal, porque o app não vem da Play Store. O APK é assinado com a chave de debug, o que basta para instalar, mas não para publicar na loja.
 
 ## Interface web em Python (Flask)
 

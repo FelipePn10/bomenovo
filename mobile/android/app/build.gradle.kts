@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Identificador único do app no Android
         applicationId = "br.edu.unicive.tarefas_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -31,8 +31,8 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // O APK de release é assinado com a chave de debug. Para instalar no celular (fora da
+            // Play Store) isso é suficiente; para publicar na loja seria preciso uma chave própria.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

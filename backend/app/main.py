@@ -12,13 +12,15 @@ from fastapi.responses import JSONResponse
 
 from app import models  # noqa: F401  (registra as tabelas no metadata)
 from app.api import auth, tasks
-from app.core.database import Base, engine
+from app.core.database import Base, engine, add_missing_columns
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Cria as tabelas automaticamente na primeira execução
     Base.metadata.create_all(bind=engine)
+    # Bancos criados na versão anterior ganham as colunas novas (priority, due_date)
+    add_missing_columns()
     yield
 
 

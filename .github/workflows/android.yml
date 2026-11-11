@@ -1,0 +1,59 @@
+# Gera o APK do app Flutter no GitHub.
+# - Todo push na main (que mexa no app): APK fica disponível em Actions > execução > "Artifacts"
+# - Criando uma tag (ex.: v1.0.0): o APK é publicado na página "Releases" para download
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    paths: ["mobile/**", ".github/workflows/android.yml"]
+    tags: ["v*"]
+  workflow_dispatch: # permite rodar manualmente pela aba Actions
+
+permissions:
+  contents: write # necessário para criar a Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.7"
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+      # API_URL: endereço padrão da API dentro do APK.
+      # Configure em Settings > Secrets and variables > Actions > Variables (ex.: https://api-tarefas.onrender.com).
+      # Se não existir, o app usa o padrão e o endereço pode ser trocado na tela de login.
+      - name: Build APK
+        run: flutter build apk --release --dart-define=API_URL=${{ vars.API_URL }}
+
+      - name: Renomear APK
+        run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/minhas-tarefas.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minhas-tarefas-apk
+          path: mobile/build/app/outputs/flutter-apk/minhas-tarefas.apk
+
+      - name: Publicar na Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mobile/build/app/outputs/flutter-apk/minhas-tarefas.apk

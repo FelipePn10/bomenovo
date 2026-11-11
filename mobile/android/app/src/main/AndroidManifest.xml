@@ -1,9 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Necessário para acessar a API -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- usesCleartextTraffic: libera "http://" (sem https), necessário para usar a API pelo IP do computador -->
     <application
         android:usesCleartextTraffic="true"
-        android:label="tarefas_app"
+        android:label="Minhas Tarefas"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
