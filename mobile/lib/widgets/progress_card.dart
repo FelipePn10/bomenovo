@@ -54,7 +54,11 @@ class ProgressCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
+            // Wrap: em telas estreitas (ou com fonte grande) os contadores descem para a linha de baixo
+            // em vez de serem cortados com "..."
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
               children: [
                 _Counter(icon: Icons.pending_actions, value: tasks.length - done, label: 'Pendentes'),
                 _Counter(icon: Icons.today, value: dueToday, label: 'Para hoje'),
@@ -77,16 +81,13 @@ class _Counter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const color = Colors.white;
-    return Expanded(
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text('$value $label', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 6),
+        Text('$value $label', style: const TextStyle(fontSize: 13)),
+      ],
     );
   }
 }

@@ -38,6 +38,26 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
+      # Chave de assinatura fixa (Settings > Secrets and variables > Actions > Secrets):
+      # ANDROID_KEYSTORE_BASE64 (arquivo .jks em base64) e ANDROID_KEYSTORE_PASSWORD.
+      # Com ela, cada versão nova instala por cima da anterior sem precisar desinstalar.
+      - name: Preparar chave de assinatura
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::Sem chave de assinatura nos Secrets; o APK sairá com a chave de debug."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=minhas-tarefas"
+          } > android/key.properties
+
       # API_URL: endereço padrão da API dentro do APK (a API hospedada no Render).
       # Para trocar sem mexer aqui, crie a variável API_URL em Settings > Secrets and variables > Actions > Variables.
       # O endereço também pode ser trocado dentro do app, no botão "Servidor" da tela de login.

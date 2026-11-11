@@ -196,11 +196,16 @@ class _FocusScreenState extends State<FocusScreen> {
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
+                  // Expanded: cada informação fica com metade da largura e o texto quebra a linha
+                  // em telas estreitas em vez de estourar para fora do card
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _Info(value: '$_sessions', label: 'Ciclos agora'),
-                      _Info(value: formatMinutes(_totalFocus), label: 'Total nesta tarefa'),
+                      Expanded(
+                        child: _Info(value: '$_sessions', label: 'Ciclos agora'),
+                      ),
+                      Expanded(
+                        child: _Info(value: formatMinutes(_totalFocus), label: 'Total nesta tarefa'),
+                      ),
                     ],
                   ),
                 ),
@@ -222,8 +227,12 @@ class _Info extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }

@@ -201,27 +201,31 @@ class _MonthGrid extends StatelessWidget {
           color: isSelected ? colors.primary : null,
           border: isToday && !isSelected ? Border.all(color: colors.primary, width: 1.5) : null,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('${day.day}', style: TextStyle(color: isSelected ? colors.onPrimary : null)),
-            // Até 3 pontinhos: um por tarefa, com a cor da prioridade (cinza se concluída)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final t in tasks.take(3))
-                  Container(
-                    width: 5,
-                    height: 5,
-                    margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isSelected ? colors.onPrimary : (t.done ? colors.outline : t.priority.color),
+        // FittedBox: em telas pequenas (ou fonte grande) o conteúdo encolhe para caber no círculo
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('${day.day}', style: TextStyle(color: isSelected ? colors.onPrimary : null)),
+              // Até 3 pontinhos: um por tarefa, com a cor da prioridade (cinza se concluída)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (final t in tasks.take(3))
+                    Container(
+                      width: 5,
+                      height: 5,
+                      margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isSelected ? colors.onPrimary : (t.done ? colors.outline : t.priority.color),
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -395,6 +395,7 @@ class _TasksScreenState extends State<TasksScreen> {
                 decoration: InputDecoration(
                   hintText: 'Adicionar rápido...',
                   helperText: 'Atalhos: hoje, amanhã, 25/12, !alta, #faculdade',
+                  helperMaxLines: 2, // quebra a linha em telas estreitas em vez de cortar
                   prefixIcon: const Icon(Icons.bolt),
                   suffixIcon: IconButton(icon: const Icon(Icons.send), tooltip: 'Criar', onPressed: _quickAdd),
                 ),
