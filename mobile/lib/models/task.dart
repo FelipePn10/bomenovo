@@ -33,6 +33,16 @@ enum Category {
       Category.values.firstWhere((c) => c.name == value, orElse: () => Category.outros);
 }
 
+/// Item do checklist (subtarefa) de uma tarefa.
+class ChecklistItem {
+  final String text;
+  final bool done;
+  const ChecklistItem(this.text, {this.done = false});
+
+  factory ChecklistItem.fromJson(Map<String, dynamic> json) => ChecklistItem(json['text'], done: json['done']);
+  Map<String, dynamic> toJson() => {'text': text, 'done': done};
+}
+
 /// Representa uma tarefa retornada pela API.
 class Task {
   final int id;
@@ -43,6 +53,7 @@ class Task {
   final Category category;
   final DateTime? dueDate;
   final DateTime? completedAt; // quando foi concluída (null se pendente)
+  final List<ChecklistItem> checklist;
   final DateTime createdAt;
 
   Task({
@@ -54,6 +65,7 @@ class Task {
     required this.category,
     this.dueDate,
     this.completedAt,
+    this.checklist = const [],
     required this.createdAt,
   });
 
@@ -66,6 +78,7 @@ class Task {
     category: Category.fromApi(json['category']),
     dueDate: json['due_date'] == null ? null : DateTime.parse(json['due_date']),
     completedAt: json['completed_at'] == null ? null : parseApiDateTime(json['completed_at']),
+    checklist: [for (final item in json['checklist'] ?? []) ChecklistItem.fromJson(item)],
     createdAt: parseApiDateTime(json['created_at']),
   );
 
@@ -78,6 +91,7 @@ class Task {
     'priority': priority.name,
     'category': category.name,
     'due_date': dueDate == null ? null : toApiDate(dueDate!),
+    'checklist': [for (final item in checklist) item.toJson()],
   };
 
   /// Pendente e com data limite já passada.
@@ -85,4 +99,7 @@ class Task {
 
   /// Pendente e com data limite para hoje.
   bool get isDueToday => !done && dueDate != null && dateOnly(dueDate!) == today();
+
+  /// Quantos itens do checklist já foram marcados.
+  int get checklistDone => checklist.where((i) => i.done).length;
 }

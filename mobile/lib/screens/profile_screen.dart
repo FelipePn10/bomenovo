@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../theme.dart';
 import '../utils/dates.dart';
 import '../widgets/account_dialogs.dart';
+import '../widgets/feedback.dart';
 import '../widgets/responsive_center.dart';
 import '../widgets/server_dialog.dart';
 import 'login_screen.dart';
@@ -29,29 +30,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final updated = await showEditNameDialog(context, _user.name);
     if (updated == null || !mounted) return;
     setState(() => _user = updated);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nome atualizado')));
+    showFeedback(context, 'Nome atualizado', type: FeedbackType.success);
   }
 
   Future<void> _changePassword() async {
     final changed = await showChangePasswordDialog(context);
     if (changed == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Senha alterada com sucesso')));
+      showFeedback(context, 'Senha alterada com sucesso', type: FeedbackType.success);
     }
   }
 
   Future<void> _confirmLogout() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sair da conta'),
-        content: const Text('Você precisará entrar novamente com e-mail e senha.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sair')),
-        ],
-      ),
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Sair da conta?',
+      message: 'Você precisará entrar novamente com e-mail e senha.',
+      icon: Icons.logout,
+      confirmLabel: 'Sair',
+      destructive: true,
     );
-    if (ok == true && mounted) logoutAndGoToLogin(context);
+    if (ok && mounted) logoutAndGoToLogin(context);
   }
 
   Future<void> _changeServer() async {
@@ -177,7 +175,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: () => showAboutDialog(
                         context: context,
                         applicationName: 'Minhas Tarefas',
-                        applicationVersion: '1.1.0',
+                        applicationVersion: '1.2.0',
                         applicationIcon: const Icon(Icons.task_alt_rounded, size: 40),
                         children: const [Text('Gerenciador de tarefas feito em Flutter, consumindo uma API FastAPI.')],
                       ),

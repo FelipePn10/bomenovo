@@ -187,3 +187,20 @@ def test_update_profile_and_password():
     r = client.put("/auth/password", json={"current_password": "senha123", "new_password": "nova123"}, headers=h)
     assert r.status_code == 204
     assert client.post("/auth/login", json={"email": USER["email"], "password": "nova123"}).status_code == 200
+
+
+def test_checklist():
+    h = auth_headers()
+    items = [{"text": "Introdução", "done": True}, {"text": "Conclusão"}]
+    r = client.post("/tasks", json={"title": "Relatório", "checklist": items}, headers=h)
+    assert r.status_code == 201
+    assert r.json()["checklist"] == [{"text": "Introdução", "done": True}, {"text": "Conclusão", "done": False}]
+
+    # PUT troca a lista inteira
+    task_id = r.json()["id"]
+    r = client.put(f"/tasks/{task_id}", json={"checklist": [{"text": "Só um", "done": True}]}, headers=h)
+    assert r.json()["checklist"] == [{"text": "Só um", "done": True}]
+
+    # Tarefa sem checklist devolve lista vazia; item sem texto é recusado
+    assert client.post("/tasks", json={"title": "Simples"}, headers=h).json()["checklist"] == []
+    assert client.post("/tasks", json={"title": "X", "checklist": [{"text": ""}]}, headers=h).status_code == 422

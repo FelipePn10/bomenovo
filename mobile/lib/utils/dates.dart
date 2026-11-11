@@ -43,3 +43,22 @@ String greeting() {
   if (hour < 18) return 'Boa tarde';
   return 'Boa noite';
 }
+
+const _weekdays = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo'];
+const _months = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+];
+
+/// Data por extenso: "quarta-feira, 11 de novembro"
+String longDate(DateTime d) => '${_weekdays[d.weekday - 1]}, ${d.day} de ${_months[d.month - 1]}';

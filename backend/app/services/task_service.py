@@ -25,6 +25,7 @@ class TaskService:
         return task
 
     def create(self, data: TaskCreate) -> Task:
+        # model_dump converte tudo (inclusive os itens do checklist) em dicionários simples
         task = data.model_dump()
         if task["done"]:
             task["completed_at"] = datetime.now(timezone.utc)
@@ -37,7 +38,7 @@ class TaskService:
         if not changes:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Envie ao menos um campo para atualizar.")
         # Título e prioridade são obrigatórios: não podem virar null
-        for field in ("title", "priority", "category"):
+        for field in ("title", "priority", "category", "checklist"):
             if field in changes and changes[field] is None:
                 raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"O campo '{field}' não pode ser nulo.")
         # Guarda a data de conclusão só quando o status realmente muda

@@ -5,6 +5,8 @@ import '../models/user.dart';
 import '../services/api_service.dart';
 import '../utils/dates.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/feedback.dart';
+import '../widgets/greeting_header.dart';
 import '../widgets/progress_card.dart';
 import '../widgets/task_card.dart';
 import 'login_screen.dart';
@@ -97,16 +99,13 @@ class _TasksScreenState extends State<TasksScreen> {
       await action();
     } on ApiException catch (e) {
       if (e.statusCode == 401) return _sessionExpired(e.message);
-      _showMessage(e.message);
+      _showMessage(e.message, type: FeedbackType.error);
     }
   }
 
-  /// Mostra uma mensagem rápida no rodapé. [action] adiciona um botão (ex.: "Desfazer").
-  void _showMessage(String message, {SnackBarAction? action}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message), action: action));
+  /// Mostra um aviso no rodapé. [action] adiciona um botão (ex.: "Desfazer").
+  void _showMessage(String message, {FeedbackType type = FeedbackType.info, SnackBarAction? action}) {
+    if (mounted) showFeedback(context, message, type: type, action: action);
   }
 
   void _sessionExpired(String message) => logoutAndGoToLogin(context, message: message);
@@ -119,7 +118,13 @@ class _TasksScreenState extends State<TasksScreen> {
   Future<void> _toggleDone(Task task) => _run(() async {
     final updated = await api.updateTask(task.id, {'done': !task.done});
     _replace(updated);
-    _showMessage(updated.done ? 'Tarefa concluída!' : 'Tarefa reaberta');
+    if (!updated.done) return _showMessage('Tarefa reaberta');
+    // Era a última pendente? Mostra a comemoração em vez do aviso simples
+    if (_tasks.every((t) => t.done)) {
+      if (mounted) showAllDoneDialog(context);
+    } else {
+      _showMessage('Tarefa concluída!', type: FeedbackType.success);
+    }
   });
 
   /// Exclui sem pedir confirmação, mas oferece "Desfazer".
@@ -131,6 +136,7 @@ class _TasksScreenState extends State<TasksScreen> {
       'Tarefa excluída',
       action: SnackBarAction(
         label: 'Desfazer',
+        textColor: Colors.white,
         onPressed: () => _run(() async {
           final restored = await api.createTask(task.toJson());
           setState(() => _tasks.add(restored));
@@ -143,28 +149,24 @@ class _TasksScreenState extends State<TasksScreen> {
   Future<void> _duplicate(Task task) => _run(() async {
     final copy = await api.createTask({...task.toJson(), 'title': '${task.title} (cópia)', 'done': false});
     setState(() => _tasks.add(copy));
-    _showMessage('Tarefa duplicada');
+    _showMessage('Tarefa duplicada', type: FeedbackType.success);
   });
 
   /// Apaga todas as concluídas (DELETE /tasks/concluidas). Aqui não há "desfazer", então pede confirmação.
   Future<void> _clearCompleted() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.cleaning_services_outlined),
-        title: const Text('Limpar concluídas'),
-        content: const Text('Todas as tarefas concluídas serão excluídas. Essa ação não pode ser desfeita.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Limpar')),
-        ],
-      ),
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Limpar concluídas?',
+      message: 'Todas as tarefas concluídas serão excluídas. Essa ação não pode ser desfeita.',
+      icon: Icons.cleaning_services_outlined,
+      confirmLabel: 'Limpar',
+      destructive: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     await _run(() async {
       final count = await api.deleteCompleted();
       setState(() => _tasks.removeWhere((t) => t.done));
-      _showMessage('$count tarefa(s) excluída(s)');
+      _showMessage(count == 1 ? '1 tarefa excluída' : '$count tarefas excluídas', type: FeedbackType.success);
     });
   }
 
@@ -221,7 +223,6 @@ class _TasksScreenState extends State<TasksScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_user == null ? 'Minhas tarefas' : '${greeting()}, ${_user!.firstName}'),
         actions: [
           IconButton(icon: const Icon(Icons.insights), tooltip: 'Estatísticas', onPressed: _openStats),
           PopupMenuButton<TaskSort>(
@@ -255,6 +256,48 @@ class _TasksScreenState extends State<TasksScreen> {
         label: const Text('Nova tarefa'),
       ),
     );
+  }
+
+  /// Grade de cards: 1 coluna no celular, 2 em telas largas ([cardWidth] vem do LayoutBuilder).
+  Widget _cardsGrid(List<Task> tasks, double cardWidth, double spacing) {
+    return Wrap(
+      spacing: spacing,
+      runSpacing: spacing,
+      children: [
+        for (final task in tasks)
+          SizedBox(
+            width: cardWidth,
+            child: TaskCard(
+              task: task,
+              onToggle: () => _toggleDone(task),
+              onEdit: () => _openForm(task),
+              onDelete: () => _delete(task),
+              onDuplicate: () => _duplicate(task),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Separa as tarefas (já ordenadas por data) em seções.
+  /// O Map mantém a ordem de inserção, então as seções aparecem na ordem da lista.
+  Map<String, List<Task>> _groupByDate(List<Task> tasks) {
+    final groups = <String, List<Task>>{};
+    for (final t in tasks) {
+      groups.putIfAbsent(_sectionOf(t), () => []).add(t);
+    }
+    return groups;
+  }
+
+  String _sectionOf(Task t) {
+    if (t.done) return 'Concluídas';
+    if (t.dueDate == null) return 'Sem data';
+    final days = dateOnly(t.dueDate!).difference(today()).inDays;
+    if (days < 0) return 'Atrasadas';
+    if (days == 0) return 'Hoje';
+    if (days == 1) return 'Amanhã';
+    if (days <= 7) return 'Próximos 7 dias';
+    return 'Mais tarde';
   }
 
   Widget _buildBody() {
@@ -295,6 +338,7 @@ class _TasksScreenState extends State<TasksScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(sidePadding, 8, sidePadding, 100),
             children: [
+              if (_user != null) ...[GreetingHeader(name: _user!.firstName, tasks: _tasks), const SizedBox(height: 20)],
               ProgressCard(tasks: _tasks),
               const SizedBox(height: 16),
               TextField(
@@ -356,28 +400,45 @@ class _TasksScreenState extends State<TasksScreen> {
                         title: 'Nada encontrado',
                         message: 'Tente outro filtro ou outra busca.',
                       )
+              // Ordenando por data limite, a lista é dividida em seções (Atrasadas, Hoje, Amanhã...)
+              else if (_sort == TaskSort.prazo)
+                for (final MapEntry(key: title, value: tasks) in _groupByDate(visible).entries) ...[
+                  _SectionTitle(title: title, count: tasks.length),
+                  _cardsGrid(tasks, cardWidth, spacing),
+                  const SizedBox(height: 8),
+                ]
               else
-                Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
-                  children: [
-                    for (final task in visible)
-                      SizedBox(
-                        width: cardWidth,
-                        child: TaskCard(
-                          task: task,
-                          onToggle: () => _toggleDone(task),
-                          onEdit: () => _openForm(task),
-                          onDelete: () => _delete(task),
-                          onDuplicate: () => _duplicate(task),
-                        ),
-                      ),
-                  ],
-                ),
+                _cardsGrid(visible, cardWidth, spacing),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// Título de uma seção da lista, com a quantidade de tarefas ao lado.
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final int count;
+  const _SectionTitle({required this.title, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
+      child: Row(
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: colors.primaryContainer, borderRadius: BorderRadius.circular(10)),
+            child: Text('$count', style: TextStyle(color: colors.onPrimaryContainer, fontSize: 12)),
+          ),
+        ],
+      ),
     );
   }
 }

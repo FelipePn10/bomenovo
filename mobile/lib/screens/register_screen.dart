@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/feedback.dart';
 import '../widgets/responsive_center.dart';
 import 'tasks_screen.dart';
 
@@ -30,12 +31,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final email = _email.text.trim();
       await api.register(_name.text.trim(), email, _password.text);
       await api.login(email, _password.text); // evita o usuário digitar tudo de novo
-      messenger.showSnackBar(const SnackBar(content: Text('Conta criada! Bem-vindo(a).')));
+      messenger.showSnackBar(buildFeedback('Conta criada! Bem-vindo(a).', type: FeedbackType.success));
       if (!mounted) return;
       // Remove login e cadastro da pilha de telas
       Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const TasksScreen()), (_) => false);
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      messenger.showSnackBar(buildFeedback(e.message, type: FeedbackType.error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

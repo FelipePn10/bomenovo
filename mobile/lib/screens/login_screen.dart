@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/feedback.dart';
 import '../widgets/responsive_center.dart';
 import '../widgets/server_dialog.dart';
 import 'register_screen.dart';
@@ -32,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // pushReplacement: o botão voltar não retorna para o login
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const TasksScreen()));
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showFeedback(context, e.message, type: FeedbackType.error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -118,6 +119,7 @@ Future<void> logoutAndGoToLogin(BuildContext context, {String? message}) async {
   final navigator = Navigator.of(context);
   final messenger = ScaffoldMessenger.of(context);
   await api.logout();
-  if (message != null) messenger.showSnackBar(SnackBar(content: Text(message)));
+  // Usa o messenger guardado antes, porque depois da navegação este context deixa de existir
+  if (message != null) messenger.showSnackBar(buildFeedback(message, type: FeedbackType.warning));
   navigator.pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
 }

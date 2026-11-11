@@ -42,6 +42,7 @@ def add_missing_columns() -> None:
         "due_date": "DATE",
         "category": "VARCHAR(20) NOT NULL DEFAULT 'outros'",
         "completed_at": "TIMESTAMP WITH TIME ZONE",
+        "checklist": "JSON DEFAULT '[]'",
     }
     with engine.begin() as conn:
         for name, ddl in new_columns.items():

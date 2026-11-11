@@ -34,7 +34,7 @@ Trabalho prático: uma **API RESTful em FastAPI** com CRUD de **tarefas** e aute
 │       ├── models/            # Task (com prioridade e data limite) e User
 │       ├── services/api_service.dart   # Chamadas HTTP, token e endereço do servidor
 │       ├── utils/dates.dart   # Formatação de datas ("Hoje", "Atrasada há 2 dias"...)
-│       ├── widgets/           # Componentes reutilizados (card da tarefa, progresso, janelas...)
+│       ├── widgets/           # Componentes reutilizados (card da tarefa, cabeçalho, avisos, janelas...)
 │       └── screens/           # login, cadastro, tarefas, formulário, estatísticas e perfil
 ├── render.yaml                # Deploy gratuito da API no Render
 └── .github/workflows/android.yml   # Gera o APK automaticamente no GitHub
@@ -135,9 +135,10 @@ Os mesmos exemplos estão em `backend/requests.http`.
 | `priority`    | `baixa`, `media` ou `alta`   | não         | padrão `media`                      |
 | `due_date`    | data `AAAA-MM-DD`            | não         | enviar `null` no `PUT` remove a data |
 | `category`    | `faculdade`, `trabalho`, `pessoal`, `casa`, `saude` ou `outros` | não | padrão `outros` |
+| `checklist`   | lista de `{"text": "...", "done": false}` | não | subtarefas; no `PUT` a lista enviada substitui a anterior |
 | `completed_at`| data e hora                  | (só leitura) | preenchido pela API ao concluir; volta a `null` ao reabrir |
 
-Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao iniciar, a API adiciona as colunas novas (`priority`, `due_date`, `category` e `completed_at`) sozinha.
+Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao iniciar, a API adiciona as colunas novas (`priority`, `due_date`, `category`, `completed_at` e `checklist`) sozinha.
 
 ## App Flutter
 
@@ -145,12 +146,15 @@ Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao inici
 
 - Cadastro (com confirmação de senha) e login; depois do cadastro o login é feito automaticamente
 - Sessão salva no aparelho: abrindo o app de novo, vai direto para as tarefas. Se o token expirar, volta para o login com o aviso da API
-- Saudação de acordo com a hora ("Bom dia", "Boa tarde", "Boa noite") e card de progresso (% concluído, pendentes, para hoje e atrasadas)
-- Busca por título/descrição, filtros por status (todas, pendentes, atrasadas, concluídas) e por categoria, e ordenação (mais recentes, data limite, prioridade)
+- Cabeçalho com a data por extenso, saudação de acordo com a hora ("Bom dia", "Boa tarde", "Boa noite") com ícone do período e um resumo do dia (atrasadas, para hoje...)
+- Card de progresso (% concluído, pendentes, para hoje e atrasadas)
+- Busca por título/descrição, filtros por status (todas, pendentes, atrasadas, concluídas) e por categoria, e ordenação (mais recentes, data limite, prioridade). Ordenando por data limite, a lista é dividida em seções: Atrasadas, Hoje, Amanhã, Próximos 7 dias, Mais tarde, Sem data e Concluídas
+- **Checklist** (subtarefas) em cada tarefa, com o progresso ("2/5") aparecendo no card
 - Criar e editar tarefa com categoria, prioridade, data limite (calendário em português + atalhos "Hoje", "Amanhã", "Em 1 semana") e status
 - Gestos nos cards: arrastar para a direita conclui/reabre, para a esquerda exclui
 - Exclusão com botão **Desfazer**, opção de **duplicar** tarefa e **limpar todas as concluídas** (aparece no filtro "Concluídas")
 - Tela de **estatísticas**: taxa de conclusão, tarefas concluídas em cada um dos últimos 7 dias, pendentes por prioridade e tarefas por categoria
+- Avisos coloridos por tipo (sucesso, aviso, erro), janelas de confirmação próprias e uma comemoração quando todas as tarefas são concluídas
 - Perfil com dados da conta, **editar nome**, **alterar senha**, tema claro/escuro/automático e troca do servidor da API
 - Layout responsivo: no celular a lista tem 1 coluna; em tablet, celular deitado ou navegador vira 2 colunas, e os formulários ficam centralizados com largura limitada
 

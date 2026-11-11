@@ -68,8 +68,13 @@ void main() {
       'priority': 'media',
       'category': 'faculdade',
       'due_date': '2026-12-01',
+      'checklist': [
+        {'text': 'Revisar', 'done': true},
+        {'text': 'Enviar', 'done': false},
+      ],
       'created_at': '2026-11-01T10:00:00',
     });
+    expect(task.checklistDone, 1);
     expect(task.category, Category.faculdade);
     expect(task.toJson(), {
       'title': 'TCC',
@@ -78,6 +83,10 @@ void main() {
       'priority': 'media',
       'category': 'faculdade',
       'due_date': '2026-12-01',
+      'checklist': [
+        {'text': 'Revisar', 'done': true},
+        {'text': 'Enviar', 'done': false},
+      ],
     });
   });
 

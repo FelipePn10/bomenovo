@@ -1,7 +1,7 @@
 """Modelo ORM da tabela de tarefas (recurso principal do CRUD)."""
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -22,6 +22,8 @@ class Task(Base):
     category: Mapped[str] = mapped_column(String(20), default="outros")
     # Quando a tarefa foi concluída (preenchido pelo serviço). Usado nas estatísticas do app
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Checklist (subtarefas) salvo como JSON: [{"text": "Ler cap. 1", "done": true}, ...]
+    checklist: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
 

@@ -92,6 +92,13 @@ class TaskCard extends StatelessWidget {
                           children: [
                             _Tag(icon: Icons.flag, label: task.priority.label, color: task.priority.color),
                             _Tag(icon: task.category.icon, label: task.category.label, color: colors.onSurfaceVariant),
+                            // Progresso do checklist, ex.: "2/5"
+                            if (task.checklist.isNotEmpty)
+                              _Tag(
+                                icon: Icons.checklist,
+                                label: '${task.checklistDone}/${task.checklist.length}',
+                                color: colors.onSurfaceVariant,
+                              ),
                             if (task.dueDate != null)
                               _Tag(
                                 icon: Icons.event,

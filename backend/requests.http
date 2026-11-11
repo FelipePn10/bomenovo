@@ -24,7 +24,7 @@ POST {{base}}/tasks
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
-{"title": "Estudar FastAPI", "description": "Ler a documentação", "priority": "alta", "category": "faculdade", "due_date": "2026-12-01"}
+{"title": "Estudar FastAPI", "description": "Ler a documentação", "priority": "alta", "category": "faculdade", "due_date": "2026-12-01", "checklist": [{"text": "Ler a documentação", "done": false}]}
 
 ### Listar tarefas
 GET {{base}}/tasks

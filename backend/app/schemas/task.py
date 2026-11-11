@@ -2,11 +2,17 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Valores aceitos para a prioridade (qualquer outro valor gera erro 422)
 Priority = Literal["baixa", "media", "alta"]
 Category = Literal["faculdade", "trabalho", "pessoal", "casa", "saude", "outros"]
+
+
+class ChecklistItem(BaseModel):
+    """Um item do checklist (subtarefa)."""
+    text: str = Field(min_length=1, max_length=200)
+    done: bool = False
 
 
 class TaskCreate(BaseModel):
@@ -17,6 +23,7 @@ class TaskCreate(BaseModel):
     priority: Priority = "media"
     due_date: date | None = Field(default=None, examples=["2026-12-01"])
     category: Category = "outros"
+    checklist: list[ChecklistItem] = []
 
 
 class TaskUpdate(BaseModel):
@@ -28,6 +35,7 @@ class TaskUpdate(BaseModel):
     # Enviar "due_date": null remove a data limite
     due_date: date | None = None
     category: Category | None = None
+    checklist: list[ChecklistItem] | None = None
 
 
 class TaskOut(BaseModel):
@@ -42,8 +50,15 @@ class TaskOut(BaseModel):
     due_date: date | None
     category: str
     completed_at: datetime | None
+    checklist: list[ChecklistItem]
     created_at: datetime
     owner_id: int
+
+    @field_validator("checklist", mode="before")
+    @classmethod
+    def empty_if_null(cls, value):
+        # Tarefas antigas (de antes do checklist existir) podem ter o campo vazio no banco
+        return value or []
 
 
 class DeletedCount(BaseModel):
