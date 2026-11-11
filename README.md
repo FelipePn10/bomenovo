@@ -6,6 +6,8 @@ Trabalho prático: uma **API RESTful em FastAPI** com CRUD de **tarefas** e aute
 - Banco: **SQLite** (arquivo `backend/tarefas.db`, criado automaticamente) ou **PostgreSQL** quando hospedado
 - Senhas salvas com **bcrypt**; rotas de tarefas protegidas por **Bearer token (JWT)**
 - Documentação automática: **Swagger** em http://localhost:8000/docs
+- API hospedada (Render): https://api-tarefas-4pv6.onrender.com (Swagger em [/docs](https://api-tarefas-4pv6.onrender.com/docs))
+- APK para Android: página [Releases](https://github.com/FelipePn10/bomenovo/releases/latest) do repositório
 
 ## Estrutura
 
@@ -225,7 +227,7 @@ O workflow `.github/workflows/android.yml` compila o APK no GitHub Actions, roda
 
   O APK (`minhas-tarefas.apk`) fica na página **Releases** do repositório.
 
-Para o APK já vir apontando para a API hospedada, crie a variável `API_URL` em **Settings > Secrets and variables > Actions > Variables** com o endereço do Render. Sem ela, o endereço pode ser configurado dentro do app.
+O APK gerado pelo GitHub já vem apontando para a API do Render (`https://api-tarefas-4pv6.onrender.com`). Para usar outro endereço, crie a variável `API_URL` em **Settings > Secrets and variables > Actions > Variables**; o endereço também pode ser trocado dentro do app.
 
 ### Na própria máquina
 

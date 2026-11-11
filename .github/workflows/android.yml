@@ -38,11 +38,11 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
-      # API_URL: endereço padrão da API dentro do APK.
-      # Configure em Settings > Secrets and variables > Actions > Variables (ex.: https://api-tarefas.onrender.com).
-      # Se não existir, o app usa o padrão e o endereço pode ser trocado na tela de login.
+      # API_URL: endereço padrão da API dentro do APK (a API hospedada no Render).
+      # Para trocar sem mexer aqui, crie a variável API_URL em Settings > Secrets and variables > Actions > Variables.
+      # O endereço também pode ser trocado dentro do app, no botão "Servidor" da tela de login.
       - name: Build APK
-        run: flutter build apk --release --dart-define=API_URL=${{ vars.API_URL }}
+        run: flutter build apk --release --dart-define=API_URL=${{ vars.API_URL || 'https://api-tarefas-4pv6.onrender.com' }}
 
       - name: Renomear APK
         run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/minhas-tarefas.apk
