@@ -204,3 +204,42 @@ def test_checklist():
     # Tarefa sem checklist devolve lista vazia; item sem texto é recusado
     assert client.post("/tasks", json={"title": "Simples"}, headers=h).json()["checklist"] == []
     assert client.post("/tasks", json={"title": "X", "checklist": [{"text": ""}]}, headers=h).status_code == 422
+
+
+def test_recurring_task_creates_next():
+    h = auth_headers()
+    items = [{"text": "Pagar", "done": True}]
+    r = client.post("/tasks", json={"title": "Conta de luz", "recurrence": "mensal",
+                                    "due_date": "2026-01-31", "checklist": items}, headers=h)
+    task_id = r.json()["id"]
+
+    client.put(f"/tasks/{task_id}", json={"done": True}, headers=h)
+    tasks = client.get("/tasks", headers=h).json()
+    assert len(tasks) == 2
+    nova = next(t for t in tasks if t["id"] != task_id)
+    # 31/01 -> 28/02 (fevereiro não tem dia 31); checklist volta desmarcado
+    assert nova["due_date"] == "2026-02-28" and nova["done"] is False
+    assert nova["checklist"] == [{"text": "Pagar", "done": False}] and nova["recurrence"] == "mensal"
+
+    # Reabrir e concluir de novo cria outra; tarefa sem recorrência não cria nada
+    simples = client.post("/tasks", json={"title": "Única"}, headers=h).json()["id"]
+    client.put(f"/tasks/{simples}", json={"done": True}, headers=h)
+    assert len(client.get("/tasks", headers=h).json()) == 3
+
+
+def test_next_date():
+    from datetime import date
+
+    from app.services.task_service import next_date
+    assert next_date(date(2026, 12, 31), "diaria") == date(2027, 1, 1)
+    assert next_date(date(2026, 11, 11), "semanal") == date(2026, 11, 18)
+    assert next_date(date(2026, 12, 15), "mensal") == date(2027, 1, 15)
+
+
+def test_focus_minutes():
+    h = auth_headers()
+    task_id = client.post("/tasks", json={"title": "Estudar"}, headers=h).json()["id"]
+    client.post(f"/tasks/{task_id}/foco", json={"minutes": 25}, headers=h)
+    r = client.post(f"/tasks/{task_id}/foco", json={"minutes": 15}, headers=h)
+    assert r.status_code == 200 and r.json()["focus_minutes"] == 40
+    assert client.post(f"/tasks/{task_id}/foco", json={"minutes": 0}, headers=h).status_code == 422

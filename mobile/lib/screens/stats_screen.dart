@@ -25,6 +25,10 @@ class StatsScreen extends StatelessWidget {
     final doneThisWeek = doneByDay.fold(0, (sum, n) => sum + n);
 
     final pending = tasks.where((t) => !t.done).toList();
+    final totalFocus = tasks.fold(0, (sum, t) => sum + t.focusMinutes);
+    // As 3 tarefas com mais tempo de foco
+    final topFocus = tasks.where((t) => t.focusMinutes > 0).toList()
+      ..sort((a, b) => b.focusMinutes.compareTo(a.focusMinutes));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Estatísticas')),
@@ -72,6 +76,24 @@ class StatsScreen extends StatelessWidget {
                             ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    _Section(
+                      title: 'Modo foco: ${formatMinutes(totalFocus)} no total',
+                      child: topFocus.isEmpty
+                          ? const Text('Use o Modo foco (menu ⋮ de uma tarefa) para registrar seu tempo.')
+                          : Column(
+                              children: [
+                                for (final t in topFocus.take(3))
+                                  _HorizontalBar(
+                                    icon: Icons.timer_outlined,
+                                    label: t.title,
+                                    value: t.focusMinutes,
+                                    max: topFocus.first.focusMinutes,
+                                    valueText: formatMinutes(t.focusMinutes),
+                                  ),
+                              ],
+                            ),
                     ),
                     const SizedBox(height: 16),
                     _Section(
@@ -193,12 +215,14 @@ class _HorizontalBar extends StatelessWidget {
   final String label;
   final int value;
   final int max;
+  final String? valueText; // texto no lugar do número (ex.: "1h 25min")
   const _HorizontalBar({
     required this.icon,
     this.iconColor,
     required this.label,
     required this.value,
     required this.max,
+    this.valueText,
   });
 
   @override
@@ -212,7 +236,8 @@ class _HorizontalBar extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: iconColor ?? colors.onSurfaceVariant),
           const SizedBox(width: 8),
-          SizedBox(width: 80, child: Text(label)),
+          SizedBox(width: 80, child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 4),
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -224,7 +249,10 @@ class _HorizontalBar extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(width: 36, child: Text('$value', textAlign: TextAlign.right)),
+          SizedBox(
+            width: valueText == null ? 36 : 72,
+            child: Text(valueText ?? '$value', textAlign: TextAlign.right),
+          ),
         ],
       ),
     );

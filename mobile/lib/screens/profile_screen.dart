@@ -9,6 +9,7 @@ import '../widgets/account_dialogs.dart';
 import '../widgets/feedback.dart';
 import '../widgets/responsive_center.dart';
 import '../widgets/server_dialog.dart';
+import 'achievements_screen.dart';
 import 'login_screen.dart';
 
 /// Perfil do usuário: dados da conta, estatísticas e configurações do app.
@@ -99,6 +100,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     ListTile(
+                      leading: const Icon(Icons.emoji_events_outlined),
+                      title: const Text('Conquistas'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () =>
+                          Navigator.of(context)
+                              .push(MaterialPageRoute(builder: (_) => AchievementsScreen(tasks: widget.tasks))),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
                       leading: const Icon(Icons.badge_outlined),
                       title: const Text('Editar nome'),
                       trailing: const Icon(Icons.chevron_right),
@@ -175,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: () => showAboutDialog(
                         context: context,
                         applicationName: 'Minhas Tarefas',
-                        applicationVersion: '1.2.0',
+                        applicationVersion: '1.3.0',
                         applicationIcon: const Icon(Icons.task_alt_rounded, size: 40),
                         children: const [Text('Gerenciador de tarefas feito em Flutter, consumindo uma API FastAPI.')],
                       ),

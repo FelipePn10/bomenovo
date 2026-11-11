@@ -24,6 +24,10 @@ class Task(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Checklist (subtarefas) salvo como JSON: [{"text": "Ler cap. 1", "done": true}, ...]
     checklist: Mapped[list] = mapped_column(JSON, default=list)
+    # Repetição: "nunca", "diaria", "semanal" ou "mensal"
+    recurrence: Mapped[str] = mapped_column(String(10), default="nunca")
+    # Total de minutos de foco (Pomodoro) dedicados à tarefa
+    focus_minutes: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
 

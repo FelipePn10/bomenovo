@@ -62,3 +62,16 @@ const _months = [
 
 /// Data por extenso: "quarta-feira, 11 de novembro"
 String longDate(DateTime d) => '${_weekdays[d.weekday - 1]}, ${d.day} de ${_months[d.month - 1]}';
+
+/// "Novembro de 2026"
+String monthYear(DateTime d) {
+  final month = _months[d.month - 1];
+  return '${month[0].toUpperCase()}${month.substring(1)} de ${d.year}';
+}
+
+/// 85 -> "1h 25min"; 40 -> "40 min"
+String formatMinutes(int minutes) {
+  if (minutes < 60) return '$minutes min';
+  final rest = minutes % 60;
+  return rest == 0 ? '${minutes ~/ 60}h' : '${minutes ~/ 60}h ${rest}min';
+}

@@ -9,7 +9,8 @@ import '../widgets/responsive_center.dart';
 /// Formulário usado tanto para criar (POST /tasks) quanto para editar (PUT /tasks/{id}).
 class TaskFormScreen extends StatefulWidget {
   final Task? task; // null = nova tarefa
-  const TaskFormScreen({super.key, this.task});
+  final DateTime? initialDueDate; // data já preenchida ao criar pelo calendário
+  const TaskFormScreen({super.key, this.task, this.initialDueDate});
 
   @override
   State<TaskFormScreen> createState() => _TaskFormScreenState();
@@ -22,7 +23,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   late final _description = TextEditingController(text: widget.task?.description);
   late Priority _priority = widget.task?.priority ?? Priority.media;
   late Category _category = widget.task?.category ?? Category.outros;
-  late DateTime? _dueDate = widget.task?.dueDate;
+  late DateTime? _dueDate = widget.task == null ? widget.initialDueDate : widget.task!.dueDate;
+  late Recurrence _recurrence = widget.task?.recurrence ?? Recurrence.nunca;
   // Cópia editável do checklist (a lista original da tarefa não é alterada até salvar)
   late final List<ChecklistItem> _checklist = [...?widget.task?.checklist];
   final _newItem = TextEditingController();
@@ -67,6 +69,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       'description': description.isEmpty ? null : description,
       'priority': _priority.name,
       'category': _category.name,
+      'recurrence': _recurrence.name,
       'checklist': [for (final item in _checklist) item.toJson()],
       'due_date': _dueDate == null ? null : toApiDate(_dueDate!),
       if (_isEditing) 'done': _done,
@@ -188,6 +191,24 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       label: const Text('Em 1 semana'),
                       onPressed: () => setState(() => _dueDate = today().add(const Duration(days: 7))),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                Text('Repetir', style: text.titleSmall),
+                const SizedBox(height: 8),
+                // Ao concluir uma tarefa que se repete, a API cria a próxima automaticamente
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final r in Recurrence.values)
+                      ChoiceChip(
+                        avatar: r == Recurrence.nunca ? null : const Icon(Icons.repeat, size: 18),
+                        label: Text(r.label),
+                        selected: _recurrence == r,
+                        onSelected: (_) => setState(() => _recurrence = r),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 24),

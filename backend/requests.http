@@ -65,3 +65,17 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"current_password": "senha123", "new_password": "novaSenha123"}
+
+### Tarefa recorrente (ao concluir, a API cria a próxima para o mês seguinte)
+POST {{base}}/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"title": "Pagar a conta de luz", "recurrence": "mensal", "due_date": "2026-12-10", "category": "casa"}
+
+### Registrar 25 minutos de foco na tarefa 1
+POST {{base}}/tasks/1/foco
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"minutes": 25}

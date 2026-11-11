@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # Valores aceitos para a prioridade (qualquer outro valor gera erro 422)
 Priority = Literal["baixa", "media", "alta"]
 Category = Literal["faculdade", "trabalho", "pessoal", "casa", "saude", "outros"]
+Recurrence = Literal["nunca", "diaria", "semanal", "mensal"]
 
 
 class ChecklistItem(BaseModel):
@@ -24,6 +25,7 @@ class TaskCreate(BaseModel):
     due_date: date | None = Field(default=None, examples=["2026-12-01"])
     category: Category = "outros"
     checklist: list[ChecklistItem] = []
+    recurrence: Recurrence = "nunca"
 
 
 class TaskUpdate(BaseModel):
@@ -36,6 +38,7 @@ class TaskUpdate(BaseModel):
     due_date: date | None = None
     category: Category | None = None
     checklist: list[ChecklistItem] | None = None
+    recurrence: Recurrence | None = None
 
 
 class TaskOut(BaseModel):
@@ -51,6 +54,8 @@ class TaskOut(BaseModel):
     category: str
     completed_at: datetime | None
     checklist: list[ChecklistItem]
+    recurrence: str
+    focus_minutes: int
     created_at: datetime
     owner_id: int
 
@@ -64,3 +69,8 @@ class TaskOut(BaseModel):
 class DeletedCount(BaseModel):
     """Resposta da limpeza de tarefas concluídas."""
     deleted: int
+
+
+class FocusSession(BaseModel):
+    """Minutos de foco a somar na tarefa (enviado pelo Modo Foco do app)."""
+    minutes: int = Field(gt=0, le=180)

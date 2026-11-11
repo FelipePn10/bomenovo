@@ -33,6 +33,20 @@ enum Category {
       Category.values.firstWhere((c) => c.name == value, orElse: () => Category.outros);
 }
 
+/// Repetição da tarefa. Ao concluir uma tarefa recorrente, a API cria a próxima.
+enum Recurrence {
+  nunca('Não repete'),
+  diaria('Todo dia'),
+  semanal('Toda semana'),
+  mensal('Todo mês');
+
+  const Recurrence(this.label);
+  final String label;
+
+  static Recurrence fromApi(String? value) =>
+      Recurrence.values.firstWhere((r) => r.name == value, orElse: () => Recurrence.nunca);
+}
+
 /// Item do checklist (subtarefa) de uma tarefa.
 class ChecklistItem {
   final String text;
@@ -54,6 +68,8 @@ class Task {
   final DateTime? dueDate;
   final DateTime? completedAt; // quando foi concluída (null se pendente)
   final List<ChecklistItem> checklist;
+  final Recurrence recurrence;
+  final int focusMinutes; // tempo total no Modo Foco
   final DateTime createdAt;
 
   Task({
@@ -66,6 +82,8 @@ class Task {
     this.dueDate,
     this.completedAt,
     this.checklist = const [],
+    this.recurrence = Recurrence.nunca,
+    this.focusMinutes = 0,
     required this.createdAt,
   });
 
@@ -79,6 +97,8 @@ class Task {
     dueDate: json['due_date'] == null ? null : DateTime.parse(json['due_date']),
     completedAt: json['completed_at'] == null ? null : parseApiDateTime(json['completed_at']),
     checklist: [for (final item in json['checklist'] ?? []) ChecklistItem.fromJson(item)],
+    recurrence: Recurrence.fromApi(json['recurrence']),
+    focusMinutes: json['focus_minutes'] ?? 0,
     createdAt: parseApiDateTime(json['created_at']),
   );
 
@@ -92,6 +112,7 @@ class Task {
     'category': category.name,
     'due_date': dueDate == null ? null : toApiDate(dueDate!),
     'checklist': [for (final item in checklist) item.toJson()],
+    'recurrence': recurrence.name,
   };
 
   /// Pendente e com data limite já passada.

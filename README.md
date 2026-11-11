@@ -33,9 +33,9 @@ Trabalho prático: uma **API RESTful em FastAPI** com CRUD de **tarefas** e aute
 │       ├── theme.dart         # Cores, estilo dos componentes e modo claro/escuro
 │       ├── models/            # Task (com prioridade e data limite) e User
 │       ├── services/api_service.dart   # Chamadas HTTP, token e endereço do servidor
-│       ├── utils/dates.dart   # Formatação de datas ("Hoje", "Atrasada há 2 dias"...)
+│       ├── utils/             # Datas, criação rápida (quick_add.dart) e conquistas (achievements.dart)
 │       ├── widgets/           # Componentes reutilizados (card da tarefa, cabeçalho, avisos, janelas...)
-│       └── screens/           # login, cadastro, tarefas, formulário, estatísticas e perfil
+│       └── screens/           # login, cadastro, tarefas, formulário, calendário, foco, estatísticas, conquistas e perfil
 ├── render.yaml                # Deploy gratuito da API no Render
 └── .github/workflows/android.yml   # Gera o APK automaticamente no GitHub
 ```
@@ -69,6 +69,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | PUT    | `/tasks/{id}`    | ✅        | Atualizar tarefa (campos enviados) | 200     |
 | DELETE | `/tasks/{id}`    | ✅        | Excluir tarefa                     | 204     |
 | DELETE | `/tasks/concluidas` | ✅     | Excluir todas as concluídas        | 200     |
+| POST   | `/tasks/{id}/foco` | ✅      | Somar minutos de foco (Pomodoro)   | 200     |
 
 ### Erros
 
@@ -136,9 +137,11 @@ Os mesmos exemplos estão em `backend/requests.http`.
 | `due_date`    | data `AAAA-MM-DD`            | não         | enviar `null` no `PUT` remove a data |
 | `category`    | `faculdade`, `trabalho`, `pessoal`, `casa`, `saude` ou `outros` | não | padrão `outros` |
 | `checklist`   | lista de `{"text": "...", "done": false}` | não | subtarefas; no `PUT` a lista enviada substitui a anterior |
+| `recurrence`  | `nunca`, `diaria`, `semanal` ou `mensal` | não | padrão `nunca`; ao concluir, a API cria a próxima ocorrência com a data avançada |
+| `focus_minutes`| número                      | (só leitura) | total do Modo Foco; alterado pelo `POST /tasks/{id}/foco` |
 | `completed_at`| data e hora                  | (só leitura) | preenchido pela API ao concluir; volta a `null` ao reabrir |
 
-Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao iniciar, a API adiciona as colunas novas (`priority`, `due_date`, `category`, `completed_at` e `checklist`) sozinha.
+Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao iniciar, a API adiciona as colunas novas (`priority`, `due_date`, `category`, `completed_at`, `checklist`, `recurrence` e `focus_minutes`) sozinha.
 
 ## App Flutter
 
@@ -155,6 +158,11 @@ Quem já tinha um `tarefas.db` da versão anterior não precisa apagar: ao inici
 - Exclusão com botão **Desfazer**, opção de **duplicar** tarefa e **limpar todas as concluídas** (aparece no filtro "Concluídas")
 - Tela de **estatísticas**: taxa de conclusão, tarefas concluídas em cada um dos últimos 7 dias, pendentes por prioridade e tarefas por categoria
 - Avisos coloridos por tipo (sucesso, aviso, erro), janelas de confirmação próprias e uma comemoração quando todas as tarefas são concluídas
+- **Modo Foco (Pomodoro):** cronômetro de 15, 25 ou 50 minutos com pausa de 5, ligado a uma tarefa (menu ⋮ > Modo foco). Cada ciclo concluído soma os minutos na tarefa, e o total aparece no card e nas estatísticas
+- **Conquistas:** sequência de dias seguidos concluindo tarefas e 9 medalhas para desbloquear (primeira tarefa, 10 e 50 concluídas, 5 num dia, sequências de 3 e 7 dias, 60 min de foco, 3 categorias, nada atrasado). Acesso pelo botão de sequência no topo ou pelo perfil
+- **Tarefas recorrentes:** a tarefa pode se repetir todo dia, toda semana ou todo mês. Ao concluir, a API cria a próxima com a data avançada e o checklist desmarcado
+- **Calendário:** visão do mês com marcadores coloridos (pela prioridade) nos dias com tarefas; tocando num dia aparecem as tarefas dele e o botão para criar uma tarefa já com aquela data
+- **Criação rápida:** campo "Adicionar rápido" que entende atalhos. Exemplo: `Prova de BD amanhã !alta #faculdade` cria a tarefa com prioridade alta, categoria Faculdade e data de amanhã. Também aceita `hoje` e datas como `25/12`
 - Perfil com dados da conta, **editar nome**, **alterar senha**, tema claro/escuro/automático e troca do servidor da API
 - Layout responsivo: no celular a lista tem 1 coluna; em tablet, celular deitado ou navegador vira 2 colunas, e os formulários ficam centralizados com largura limitada
 

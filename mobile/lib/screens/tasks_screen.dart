@@ -4,11 +4,15 @@ import '../models/task.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../utils/dates.dart';
+import '../utils/quick_add.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/feedback.dart';
 import '../widgets/greeting_header.dart';
 import '../widgets/progress_card.dart';
 import '../widgets/task_card.dart';
+import 'achievements_screen.dart';
+import 'calendar_screen.dart';
+import 'focus_screen.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
 import 'stats_screen.dart';
@@ -60,6 +64,7 @@ class _TasksScreenState extends State<TasksScreen> {
   Category? _category; // null = todas as categorias
   TaskSort _sort = TaskSort.recentes;
   final _searchController = TextEditingController();
+  final _quickAddController = TextEditingController();
   String get _search => _searchController.text;
 
   @override
@@ -71,6 +76,7 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _quickAddController.dispose();
     super.dispose();
   }
 
@@ -119,6 +125,11 @@ class _TasksScreenState extends State<TasksScreen> {
     final updated = await api.updateTask(task.id, {'done': !task.done});
     _replace(updated);
     if (!updated.done) return _showMessage('Tarefa reaberta');
+    // Tarefa recorrente: a API criou a próxima ocorrência, então recarrega a lista para ela aparecer
+    if (task.recurrence != Recurrence.nunca) {
+      await _load();
+      return _showMessage('Concluída! A próxima repetição já foi criada.', type: FeedbackType.success);
+    }
     // Era a última pendente? Mostra a comemoração em vez do aviso simples
     if (_tasks.every((t) => t.done)) {
       if (mounted) showAllDoneDialog(context);
@@ -151,6 +162,36 @@ class _TasksScreenState extends State<TasksScreen> {
     setState(() => _tasks.add(copy));
     _showMessage('Tarefa duplicada', type: FeedbackType.success);
   });
+
+  /// Criação rápida: "Prova amanhã !alta #faculdade" vira uma tarefa completa (veja utils/quick_add.dart).
+  Future<void> _quickAdd() async {
+    final data = parseQuickAdd(_quickAddController.text);
+    if ((data['title'] as String).isEmpty) {
+      return _showMessage('Escreva o nome da tarefa', type: FeedbackType.warning);
+    }
+    await _run(() async {
+      final task = await api.createTask(data);
+      _quickAddController.clear();
+      setState(() => _tasks.add(task));
+      final when = task.dueDate == null ? '' : ' para ${dueDateLabel(task.dueDate!).toLowerCase()}';
+      _showMessage('Tarefa criada$when', type: FeedbackType.success);
+    });
+  }
+
+  /// Abre o Modo Foco e recarrega ao voltar (os minutos de foco mudam).
+  Future<void> _openFocus(Task task) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => FocusScreen(task: task)));
+    if (mounted) _load();
+  }
+
+  Future<void> _openCalendar() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()));
+    if (mounted) _load(); // tarefas podem ter sido criadas/editadas no calendário
+  }
+
+  void _openAchievements() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => AchievementsScreen(tasks: _tasks)));
+  }
 
   /// Apaga todas as concluídas (DELETE /tasks/concluidas). Aqui não há "desfazer", então pede confirmação.
   Future<void> _clearCompleted() async {
@@ -224,6 +265,7 @@ class _TasksScreenState extends State<TasksScreen> {
     return Scaffold(
       appBar: AppBar(
         actions: [
+          IconButton(icon: const Icon(Icons.calendar_month), tooltip: 'Calendário', onPressed: _openCalendar),
           IconButton(icon: const Icon(Icons.insights), tooltip: 'Estatísticas', onPressed: _openStats),
           PopupMenuButton<TaskSort>(
             icon: const Icon(Icons.sort),
@@ -273,6 +315,7 @@ class _TasksScreenState extends State<TasksScreen> {
               onEdit: () => _openForm(task),
               onDelete: () => _delete(task),
               onDuplicate: () => _duplicate(task),
+              onFocus: () => _openFocus(task),
             ),
           ),
       ],
@@ -338,9 +381,26 @@ class _TasksScreenState extends State<TasksScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(sidePadding, 8, sidePadding, 100),
             children: [
-              if (_user != null) ...[GreetingHeader(name: _user!.firstName, tasks: _tasks), const SizedBox(height: 20)],
+              if (_user != null) ...[
+                GreetingHeader(name: _user!.firstName, tasks: _tasks, onAchievements: _openAchievements),
+                const SizedBox(height: 20),
+              ],
               ProgressCard(tasks: _tasks),
               const SizedBox(height: 16),
+              // Criação rápida com atalhos
+              TextField(
+                controller: _quickAddController,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.send,
+                decoration: InputDecoration(
+                  hintText: 'Adicionar rápido...',
+                  helperText: 'Atalhos: hoje, amanhã, 25/12, !alta, #faculdade',
+                  prefixIcon: const Icon(Icons.bolt),
+                  suffixIcon: IconButton(icon: const Icon(Icons.send), tooltip: 'Criar', onPressed: _quickAdd),
+                ),
+                onSubmitted: (_) => _quickAdd(),
+              ),
+              const SizedBox(height: 12),
               TextField(
                 decoration: InputDecoration(
                   hintText: 'Buscar tarefas',

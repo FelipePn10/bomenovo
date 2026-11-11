@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../models/task.dart';
+import '../utils/achievements.dart';
 import '../utils/dates.dart';
 
 /// Cabeçalho da tela inicial: data, saudação com o nome e um resumo do dia.
 class GreetingHeader extends StatelessWidget {
   final String name;
   final List<Task> tasks;
-  const GreetingHeader({super.key, required this.name, required this.tasks});
+  final VoidCallback onAchievements;
+  const GreetingHeader({super.key, required this.name, required this.tasks, required this.onAchievements});
 
   /// Ícone e cor mudam conforme o período do dia (manhã, tarde, noite).
   (IconData, Color) get _periodIcon {
@@ -40,6 +42,7 @@ class GreetingHeader extends StatelessWidget {
     final (periodIcon, periodColor) = _periodIcon;
     final (summaryIcon, summaryText) = _summary;
     final date = longDate(DateTime.now());
+    final streak = currentStreak(tasks);
 
     return Row(
       children: [
@@ -74,6 +77,13 @@ class GreetingHeader extends StatelessWidget {
                     child: Text(summaryText, style: TextStyle(color: colors.onSurfaceVariant)),
                   ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              // Atalho para as conquistas, mostrando a sequência de dias quando existir
+              ActionChip(
+                avatar: const Icon(Icons.local_fire_department, color: Color(0xFFEA580C)),
+                label: Text(streak == 0 ? 'Conquistas' : '$streak ${streak == 1 ? 'dia seguido' : 'dias seguidos'}'),
+                onPressed: onAchievements,
               ),
             ],
           ),

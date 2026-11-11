@@ -1,5 +1,6 @@
 """Regras de negócio das tarefas. Um usuário só enxerga e altera as próprias tarefas."""
-from datetime import datetime, timezone
+import calendar
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -38,13 +39,37 @@ class TaskService:
         if not changes:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Envie ao menos um campo para atualizar.")
         # Título e prioridade são obrigatórios: não podem virar null
-        for field in ("title", "priority", "category", "checklist"):
+        for field in ("title", "priority", "category", "checklist", "recurrence"):
             if field in changes and changes[field] is None:
                 raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"O campo '{field}' não pode ser nulo.")
         # Guarda a data de conclusão só quando o status realmente muda
+        just_completed = changes.get("done") is True and not task.done
         if "done" in changes and changes["done"] != task.done:
             changes["completed_at"] = datetime.now(timezone.utc) if changes["done"] else None
-        return self.tasks.update(task, **changes)
+        task = self.tasks.update(task, **changes)
+        # Tarefa recorrente concluída: já cria a próxima ocorrência
+        if just_completed and task.recurrence != "nunca":
+            self._create_next(task)
+        return task
+
+    def _create_next(self, task: Task) -> Task:
+        """Cria a próxima repetição: mesma tarefa, pendente, com o checklist desmarcado e a data avançada."""
+        base = task.due_date or date.today()
+        return self.tasks.create(
+            self.user.id,
+            title=task.title,
+            description=task.description,
+            priority=task.priority,
+            category=task.category,
+            recurrence=task.recurrence,
+            due_date=next_date(base, task.recurrence),
+            checklist=[{"text": item["text"], "done": False} for item in task.checklist or []],
+        )
+
+    def add_focus(self, task_id: int, minutes: int) -> Task:
+        """Soma os minutos de uma sessão de foco ao total da tarefa."""
+        task = self.get(task_id)
+        return self.tasks.update(task, focus_minutes=(task.focus_minutes or 0) + minutes)
 
     def delete(self, task_id: int) -> None:
         self.tasks.delete(self.get(task_id))
@@ -52,3 +77,15 @@ class TaskService:
     def delete_completed(self) -> int:
         """Apaga todas as tarefas concluídas do usuário e devolve quantas foram apagadas."""
         return self.tasks.delete_completed(self.user.id)
+
+
+def next_date(base: date, recurrence: str) -> date:
+    """Calcula a próxima data de uma tarefa recorrente."""
+    if recurrence == "diaria":
+        return base + timedelta(days=1)
+    if recurrence == "semanal":
+        return base + timedelta(weeks=1)
+    # Mensal: mesmo dia no mês seguinte. Se o dia não existir (ex.: 31/01 -> fevereiro), usa o último dia do mês
+    year, month = (base.year + 1, 1) if base.month == 12 else (base.year, base.month + 1)
+    day = min(base.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)

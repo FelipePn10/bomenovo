@@ -166,6 +166,14 @@ class ApiService {
     return Task.fromJson(json);
   }
 
+  /// Soma minutos de foco (Pomodoro) na tarefa.
+  Future<Task> addFocus(int id, int minutes) async {
+    final json = await _send(
+      () => http.post(_uri('/tasks/$id/foco'), headers: _headers, body: jsonEncode({'minutes': minutes})),
+    );
+    return Task.fromJson(json);
+  }
+
   /// Apaga todas as tarefas concluídas de uma vez. Retorna quantas foram apagadas.
   Future<int> deleteCompleted() async {
     final data = await _send(() => http.delete(_uri('/tasks/concluidas'), headers: _headers));

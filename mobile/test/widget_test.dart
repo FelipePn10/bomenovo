@@ -87,6 +87,7 @@ void main() {
         {'text': 'Revisar', 'done': true},
         {'text': 'Enviar', 'done': false},
       ],
+      'recurrence': 'nunca',
     });
   });
 

@@ -43,6 +43,8 @@ def add_missing_columns() -> None:
         "category": "VARCHAR(20) NOT NULL DEFAULT 'outros'",
         "completed_at": "TIMESTAMP WITH TIME ZONE",
         "checklist": "JSON DEFAULT '[]'",
+        "recurrence": "VARCHAR(10) NOT NULL DEFAULT 'nunca'",
+        "focus_minutes": "INTEGER NOT NULL DEFAULT 0",
     }
     with engine.begin() as conn:
         for name, ddl in new_columns.items():

@@ -13,6 +13,7 @@ class TaskCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onDuplicate;
+  final VoidCallback onFocus;
 
   const TaskCard({
     super.key,
@@ -21,6 +22,7 @@ class TaskCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onDuplicate,
+    required this.onFocus,
   });
 
   @override
@@ -92,6 +94,14 @@ class TaskCard extends StatelessWidget {
                           children: [
                             _Tag(icon: Icons.flag, label: task.priority.label, color: task.priority.color),
                             _Tag(icon: task.category.icon, label: task.category.label, color: colors.onSurfaceVariant),
+                            if (task.recurrence != Recurrence.nunca)
+                              _Tag(icon: Icons.repeat, label: task.recurrence.label, color: colors.onSurfaceVariant),
+                            if (task.focusMinutes > 0)
+                              _Tag(
+                                icon: Icons.timer_outlined,
+                                label: formatMinutes(task.focusMinutes),
+                                color: colors.onSurfaceVariant,
+                              ),
                             // Progresso do checklist, ex.: "2/5"
                             if (task.checklist.isNotEmpty)
                               _Tag(
@@ -116,12 +126,17 @@ class TaskCard extends StatelessWidget {
                   onSelected: (value) => switch (value) {
                     'edit' => onEdit(),
                     'duplicate' => onDuplicate(),
+                    'focus' => onFocus(),
                     _ => onDelete(),
                   },
                   itemBuilder: (_) => const [
                     PopupMenuItem(
                       value: 'edit',
                       child: ListTile(leading: Icon(Icons.edit), title: Text('Editar')),
+                    ),
+                    PopupMenuItem(
+                      value: 'focus',
+                      child: ListTile(leading: Icon(Icons.timer_outlined), title: Text('Modo foco')),
                     ),
                     PopupMenuItem(
                       value: 'duplicate',

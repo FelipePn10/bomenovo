@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.task import DeletedCount, TaskCreate, TaskOut, TaskUpdate
+from app.schemas.task import DeletedCount, FocusSession, TaskCreate, TaskOut, TaskUpdate
 from app.services.task_service import TaskService
 
 router = APIRouter(
@@ -55,3 +55,10 @@ def update_task(task_id: int, data: TaskUpdate, service: TaskService = Depends(g
 def delete_task(task_id: int, service: TaskService = Depends(get_service)):
     service.delete(task_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{task_id}/foco", response_model=TaskOut, summary="Registrar minutos de foco",
+             responses={404: {"description": "Tarefa não encontrada"}})
+def add_focus(task_id: int, data: FocusSession, service: TaskService = Depends(get_service)):
+    """Soma os minutos de uma sessão do Modo Foco (Pomodoro) ao total da tarefa."""
+    return service.add_focus(task_id, data.minutes)
